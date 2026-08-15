@@ -19,6 +19,8 @@ export const infilraAiQueue = new Queue('codelens-infilra-ai', queueOptions);
 export const depraQueue    = new Queue('codelens-depra',    queueOptions);
 export const devoraQueue   = new Queue('codelens-devora',   queueOptions);
 export const docryxQueue   = new Queue('codelens-docryx',   queueOptions);
+export const documentationEngineQueue = new Queue('documentation-engine', queueOptions);
+export const dependencyEngineQueue = new Queue('dependency-engine', queueOptions);
 
 export const queues = {
   infraq:  infraqQueue,
@@ -27,6 +29,8 @@ export const queues = {
   depra:   depraQueue,
   devora:  devoraQueue,
   docryx:  docryxQueue,
+  documentationEngine: documentationEngineQueue,
+  dependencyEngine: dependencyEngineQueue,
 };
 
 export default queues;

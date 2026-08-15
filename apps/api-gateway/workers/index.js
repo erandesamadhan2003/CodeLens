@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import '../config/database.js'; // Ensure pool is initialized
-import infraqWorker  from './infraq.worker.js';
+import infrastructureWorker  from './infrastructure.worker.js';
 import infilraWorker from './infilra.worker.js';
 import infilraAiWorker from './infilra-ai.worker.js';
 import depraWorker   from './depra.worker.js';
@@ -9,7 +9,7 @@ import docryxWorker  from './docryx.worker.js';
 import logger from '../utils/logger.js';
 
 const workers = [
-  { name: 'infraq',  worker: infraqWorker  },
+  { name: 'infraq',  worker: infrastructureWorker  },
   { name: 'infilra', worker: infilraWorker },
   { name: 'infilra-ai', worker: infilraAiWorker },
   { name: 'depra',   worker: depraWorker   },

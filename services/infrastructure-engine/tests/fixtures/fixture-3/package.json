@@ -1,0 +1,7 @@
+{
+  "name": "fixture-3",
+  "dependencies": {
+    "@nestjs/core": "^9.0.0",
+    "bullmq": "^1.0.0"
+  }
+}

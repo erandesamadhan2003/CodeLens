@@ -15,6 +15,7 @@ export const redirectToGitHub = asyncHandler(async (req, res) => {
     client_id: process.env.GITHUB_CLIENT_ID,
     scope: 'repo,user:email,admin:repo_hook',
     redirect_uri: `${process.env.GITHUB_WEBHOOK_BASE_URL}/api/v1/auth/github/callback`,
+    prompt: 'consent',
   });
   res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
 });

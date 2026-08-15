@@ -16,11 +16,11 @@ const ENGINE_URLS = {
  * @param {object} payload - Job payload
  * @returns {object} Engine response data
  */
-export async function callEngine(engine, payload) {
+export async function callEngine(engine, payload, path = '/analyze') {
   const url = ENGINE_URLS[engine];
   if (!url) throw new Error(`Unknown engine: ${engine}`);
 
-  const endpoint = `${url}/analyze`;
+  const endpoint = `${url}${path}`;
   logger.info({ engine, endpoint, runId: payload.runId }, 'Calling engine service');
 
   const response = await axios.post(endpoint, payload, {

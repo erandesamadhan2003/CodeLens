@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  web:
+    image: node:18
+    ports:
+      - "3000:3000"
+  cache:
+    image: redis:alpine
+    ports:
+      - "6379:6379"

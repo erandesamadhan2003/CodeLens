@@ -4,6 +4,7 @@ import repositoryRoutes  from './repository.routes.js';
 import runRoutes         from './run.routes.js';
 import resultRoutes      from './result.routes.js';
 import notificationRoutes from './notification.routes.js';
+import infrastructureRoutes from './infrastructure.routes.js';
 import webhookSignatureMiddleware from '../middlewares/webhookSignature.middleware.js';
 import { webhookRateLimit } from '../middlewares/rateLimit.middleware.js';
 import { handleGitHubWebhook } from '../controllers/webhook.controller.js';
@@ -16,6 +17,7 @@ router.use('/repositories',  repositoryRoutes);
 router.use('/runs',          runRoutes);
 router.use('/results',       resultRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/infrastructure', infrastructureRoutes);
 
 // ── Webhook (PUBLIC — raw body, HMAC verified, rate limited) ──────────────
 router.post(

@@ -1,7 +1,30 @@
-node_modules/
-.env
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
 venv/
 .venv/
-dist/
+env/
+
+# Env files (never commit secrets)
+.env
+
+# Alembic generated env (keep alembic/ itself)
+alembic/versions/__pycache__/
+
+# Temporary clone directories
+/tmp/
+
+# Editor / OS artifacts
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
