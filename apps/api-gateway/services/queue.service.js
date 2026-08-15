@@ -10,6 +10,34 @@ const ENGINE_QUEUE_MAP = {
 };
 
 /**
+ * Dispatch a dependency-engine job (BullMQ worker queue).
+ */
+export async function dispatchDependencyEngineJob(payload) {
+  const queue = queues.dependencyEngine;
+  const job = await queue.add(
+    `depra:run:${payload.scanId}`,
+    payload,
+    { jobId: `depra-${payload.scanId}` },
+  );
+  logger.info({ jobId: job.id, runId: payload.scanId }, 'Job dispatched to dependency-engine queue');
+  return job;
+}
+
+/**
+ * Dispatch a documentation-engine job (BullMQ worker queue) with optional webhook diff context.
+ */
+export async function dispatchDocumentationEngineJob(payload) {
+  const queue = queues.documentationEngine;
+  const job = await queue.add(
+    `docryx:run:${payload.scanId}`,
+    payload,
+    { jobId: `docryx-${payload.scanId}` },
+  );
+  logger.info({ jobId: job.id, runId: payload.scanId }, 'Job dispatched to documentation-engine queue');
+  return job;
+}
+
+/**
  * Dispatch a job for a single engine into its BullMQ queue.
  *
  * @param {string} engine  - One of: infraq, infilra, depra, devora, docryx

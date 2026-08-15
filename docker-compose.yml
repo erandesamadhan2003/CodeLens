@@ -30,10 +30,11 @@ services:
 
   documentation-engine:
     build: ./services/documentation-engine
-    ports:
-      - "8003:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - ./services/documentation-engine/.env
+    depends_on:
+      - redis
+      - db
 
   infrastructure-engine:
     build: ./services/infrastructure-engine
