@@ -107,24 +107,34 @@ def _discover_manifests(workspace: str) -> list[dict]:
 
 
 # ── OSV.dev batch query ───────────────────────────────────────────────────────
+async def _query_single(client, p, sem):
+    async with sem:
+        try:
+            resp = await client.post("https://api.osv.dev/v1/query", json={
+                "package": {"name": p["name"], "ecosystem": p["ecosystem"]},
+                "version": p["version"]
+            })
+            resp.raise_for_status()
+            return p["name"], resp.json().get("vulns", [])
+        except Exception as e:
+            logger.warning(f"OSV.dev query failed for {p['name']}: {e}")
+            return p["name"], []
+
 async def _query_osv(packages: list[dict]) -> dict[str, dict]:
     """Query OSV.dev for vulnerabilities. Returns {name: vuln_info}."""
     if not packages:
         return {}
-    queries = [{"package": {"name": p["name"], "ecosystem": p["ecosystem"]}} for p in packages]
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(OSV_BATCH_URL, json={"queries": queries})
-            resp.raise_for_status()
-            results = resp.json().get("results", [])
-    except Exception as e:
-        logger.warning(f"OSV.dev query failed: {e}")
-        return {}
-
+    
     vuln_map = {}
-    for pkg, res in zip(packages, results):
-        vulns = res.get("vulns", [])
-        if vulns:
+    sem = asyncio.Semaphore(15)  # Limit concurrent requests
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        tasks = [_query_single(client, p, sem) for p in packages]
+        results = await asyncio.gather(*tasks)
+        
+        for pkg_name, vulns in results:
+            if not vulns:
+                continue
+                
             v = vulns[0]
             # Determine severity from CVSS
             severity = "UNKNOWN"
@@ -139,14 +149,20 @@ async def _query_osv(packages: list[dict]) -> dict[str, dict]:
                         else: severity = "LOW"
                     except Exception:
                         pass
+            
             fix_version = None
             for affected in v.get("affected", []):
+                if affected.get("package", {}).get("name") != pkg_name:
+                    continue
                 for rng in affected.get("ranges", []):
                     for ev in rng.get("events", []):
                         if "fixed" in ev:
                             fix_version = ev["fixed"]
                             break
-            vuln_map[pkg["name"]] = {
+                    if fix_version: break
+                if fix_version: break
+                
+            vuln_map[pkg_name] = {
                 "id": v.get("id", ""),
                 "summary": v.get("summary", ""),
                 "severity": severity,
@@ -155,6 +171,7 @@ async def _query_osv(packages: list[dict]) -> dict[str, dict]:
                 "vulnCount": len(vulns),
                 "aliases": v.get("aliases", [])[:3],
             }
+            
     return vuln_map
 
 
@@ -204,8 +221,8 @@ async def analyze(req: AnalyzeRequest):
         # Collect all unique packages
         all_packages = []
         for m in manifests:
-            for name in m["deps"]:
-                all_packages.append({"name": name, "ecosystem": m["ecosystem"]})
+            for name, version in m["deps"].items():
+                all_packages.append({"name": name, "version": version, "ecosystem": m["ecosystem"]})
 
         # OSV query
         vuln_map = await _query_osv(all_packages[:100])  # cap at 100

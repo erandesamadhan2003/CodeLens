@@ -165,24 +165,62 @@ export default function DependencyDashboard() {
               </div>
             )}
 
-            {/* Filter bar */}
-            <div className="flex flex-wrap items-center gap-3">
-              {(['ALL', 'VULNERABLE', 'SAFE'] as const).map(f => (
-                <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 font-mono text-xs uppercase font-bold border-2 border-ink rounded-[6px] transition-all ${filter === f ? 'bg-ink text-paper' : 'bg-paper hover:bg-surface'}`}>{f}</button>
-              ))}
-              <input type="text" placeholder="Search package..." value={search} onChange={e => setSearch(e.target.value)}
-                className="ml-auto px-3 py-1.5 text-sm font-mono border-2 border-ink rounded-[6px] bg-paper focus:outline-none" />
-            </div>
-
-            {/* Dependency table */}
-            <div className="bg-paper border-2 border-ink rounded-[6px] overflow-hidden shadow-[4px_4px_0px_#0A0A0A]">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2 border-b-2 border-ink bg-surface font-mono text-xs uppercase text-muted">
-                <span>Package</span><span>Ecosystem</span><span>Status</span><span></span>
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column: Dependency Table */}
+              <div className="lg:col-span-2 flex flex-col gap-4">
+                {/* Filter bar */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {(['ALL', 'VULNERABLE', 'SAFE'] as const).map(f => (
+                    <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 font-mono text-xs uppercase font-bold border-2 border-ink rounded-[6px] transition-all ${filter === f ? 'bg-ink text-paper' : 'bg-paper hover:bg-surface'}`}>{f}</button>
+                  ))}
+                  <input type="text" placeholder="Search package..." value={search} onChange={e => setSearch(e.target.value)}
+                    className="ml-auto px-3 py-1.5 text-sm font-mono border-2 border-ink rounded-[6px] bg-paper focus:outline-none" />
+                </div>
+                
+                {/* Dependency table */}
+                <div className="bg-paper border-2 border-ink rounded-[6px] overflow-hidden shadow-[4px_4px_0px_#0A0A0A]">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2 border-b-2 border-ink bg-surface font-mono text-xs uppercase text-muted">
+                    <span>Package</span><span>Ecosystem</span><span>Status</span><span></span>
+                  </div>
+                  <div className="max-h-[500px] overflow-y-auto divide-y divide-ink/5">
+                    {filtered.length === 0 ? (
+                      <div className="p-8 text-center text-muted font-mono">No packages match filter</div>
+                    ) : filtered.map((dep, i) => <DepRow key={dep.name + i} dep={dep} />)}
+                  </div>
+                </div>
               </div>
-              <div className="max-h-[500px] overflow-y-auto divide-y divide-ink/5">
-                {filtered.length === 0 ? (
-                  <div className="p-8 text-center text-muted font-mono">No packages match filter</div>
-                ) : filtered.map((dep, i) => <DepRow key={dep.name + i} dep={dep} />)}
+
+              {/* Right Column: Recommendations Sidebar */}
+              <div className="lg:col-span-1">
+                <div className="bg-paper border-2 border-ink rounded-[6px] shadow-[4px_4px_0px_#0A0A0A] flex flex-col h-full max-h-[555px]">
+                  <div className="px-4 py-3 border-b-2 border-ink bg-surface font-display font-bold uppercase tracking-tight flex items-center gap-2">
+                    <span>💡 Actionable Fixes</span>
+                    <span className="ml-auto px-2 py-0.5 bg-ink text-paper text-xs rounded-full">
+                      {vulnerable.filter(v => v.vuln?.fixVersion).length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                    {vulnerable.filter(v => v.vuln?.fixVersion).length === 0 ? (
+                      <div className="text-center text-muted font-mono text-sm py-8 border-2 border-dashed border-ink/20 rounded">
+                        No actionable upgrades available.
+                      </div>
+                    ) : (
+                      vulnerable.filter(v => v.vuln?.fixVersion).map((dep, i) => (
+                        <div key={i} className="border-2 border-ink p-3 rounded bg-surface shadow-[2px_2px_0px_#0A0A0A]">
+                          <div className="font-mono text-sm font-bold truncate mb-1" title={dep.name}>{dep.name}</div>
+                          <div className="font-mono text-xs text-muted mb-3 flex items-center gap-2">
+                            <span>Current:</span>
+                            <span className="px-1.5 py-0.5 bg-red-100 text-red-700 border border-red-300 rounded line-through">v{dep.version}</span>
+                          </div>
+                          <div className="p-2 bg-green-100 border border-green-400 rounded text-xs font-mono text-green-900">
+                            Update to <strong className="text-green-700 text-sm">v{dep.vuln.fixVersion}</strong>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </>
