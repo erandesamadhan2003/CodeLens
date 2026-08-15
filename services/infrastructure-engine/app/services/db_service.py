@@ -203,6 +203,36 @@ async def update_terraform_metadata(run_id: str, cloud_provider: str, tf_resourc
         logger.info(f"Successfully updated terraform metadata for run_id: {run_id}")
     except Exception as e:
         logger.error(f"Error updating terraform metadata for run_id {run_id}: {e}")
+        if 'conn' in locals() and not conn.is_closed():
+            await conn.close()
+
+async def update_recommendations(run_id: str, result: dict):
+    """
+    Updates the recommendations JSONB column with the engine output (scores and recommendations).
+    """
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        logger.error("DATABASE_URL not set, skipping recommendations metadata update.")
+        return
+
+    try:
+        conn = await asyncpg.connect(db_url)
+        
+        query = """
+            UPDATE infra_analyses
+            SET recommendations = $1::jsonb
+            WHERE run_id = $2
+        """
+        
+        await conn.execute(
+            query,
+            json.dumps(result),
+            run_id
+        )
+        
+        logger.info(f"Successfully updated recommendations metadata for run_id: {run_id}")
+    except Exception as e:
+        logger.error(f"Error updating recommendations metadata for run_id {run_id}: {e}")
     finally:
         if 'conn' in locals() and not conn.is_closed():
             await conn.close()

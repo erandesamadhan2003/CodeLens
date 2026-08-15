@@ -105,16 +105,19 @@ async def analysis_stream(payload: JobPayload):
             from app.analyzers.compose_analyzer import ComposeAnalyzer
             from app.analyzers.kubernetes_analyzer import KubernetesAnalyzer
             from app.analyzers.terraform_analyzer import TerraformAnalyzer
+            from app.analyzers.cicd_analyzer import CicdAnalyzer
             
             docker_analyzer = DockerAnalyzer(workspace_path)
             compose_analyzer = ComposeAnalyzer(workspace_path)
             kubernetes_analyzer = KubernetesAnalyzer(workspace_path)
             terraform_analyzer = TerraformAnalyzer(workspace_path, arch_model)
+            cicd_analyzer = CicdAnalyzer(workspace_path)
             
             all_findings = []
             all_findings.extend(docker_analyzer.analyze())
             all_findings.extend(compose_analyzer.analyze())
             all_findings.extend(kubernetes_analyzer.analyze())
+            all_findings.extend(cicd_analyzer.analyze())
             
             tf_findings, tf_provider = terraform_analyzer.analyze()
             all_findings.extend(tf_findings)
@@ -135,20 +138,57 @@ async def analysis_stream(payload: JobPayload):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }) + "\n"
             
-            # 6. Stream Final Success Event
-            result = {
+            # --- STAGE 5A: RECOMMENDATION ENGINE ---
+            logger.info("Starting Recommendation Engine phase", extra={"runId": payload.runId})
+            yield json.dumps({
                 "runId": payload.runId,
                 "engine": "infrastructure",
-                "stage": "analysis",
-                "status": "completed",
-                "progress": 100,
-                "message": "Analysis successfully completed",
+                "stage": "recommendation",
+                "status": "started",
+                "progress": 60,
+                "message": "Generating infrastructure recommendations",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data": {
+                    "eventName": "infra.recommendation.started"
+                }
+            }) + "\n"
+            
+            from app.recommendation.engine import RecommendationEngine
+            recommendation_engine = RecommendationEngine(discovery, arch_model, all_findings)
+            recommendation_result = recommendation_engine.generate()
+            
+            from app.services.db_service import update_recommendations
+            await update_recommendations(payload.runId, recommendation_result.model_dump())
+            
+            yield json.dumps({
+                "runId": payload.runId,
+                "engine": "infrastructure",
+                "stage": "recommendation",
+                "status": "completed",
+                "progress": 70,
+                "message": "Recommendations generated",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data": {
+                    "eventName": "infra.recommendation.completed"
+                }
+            }) + "\n"
+            
+            # --- FINAL RESULT ---
+            result = {
                 "final_result": {
-                    "status": "success",
-                    "discovery": discovery.model_dump(),
-                    "architecture": arch_model.model_dump(),
-                    "findings": [f.model_dump() for f in all_findings],
+                    "runId": payload.runId,
+                    "engine": "infrastructure",
+                    "stage": "analysis",
+                    "status": "completed",
+                    "progress": 100,
+                    "message": "Infrastructure analysis completed",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "data": {
+                        "discovery": discovery.model_dump(),
+                        "architecture": arch_model.model_dump(),
+                        "findingsCount": len(all_findings),
+                        "recommendations": recommendation_result.model_dump()
+                    },
                     "ai_tokens_used": 0
                 }
             }

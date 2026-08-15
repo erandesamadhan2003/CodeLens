@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../auth/hooks/useAuth';
 
 // Same circuit texture used in login
 const TextureBg = () => (
@@ -12,6 +13,8 @@ const TextureBg = () => (
 );
 
 export default function HomePage() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="relative min-h-screen bg-ink flex flex-col items-center justify-center p-6 overflow-hidden">
       <TextureBg />
@@ -26,12 +29,27 @@ export default function HomePage() {
 
       {/* Main Content Box */}
       <div className="relative z-10 w-full max-w-lg flex flex-col items-center text-center">
+        {user?.avatar_url && (
+          <img 
+            src={user.avatar_url} 
+            alt={`${user.username}'s avatar`}
+            className="w-24 h-24 rounded-full border-4 border-ink shadow-[4px_4px_0px_#0A0A0A] mb-6 object-cover"
+          />
+        )}
+        
         <h1 className="font-display font-bold text-3xl lg:text-5xl uppercase text-paper leading-[1.1] tracking-tight mb-4">
-          You're in.
+          Welcome, {user?.username || 'Hacker'}.
         </h1>
-        <p className="font-sans text-muted text-lg lg:text-xl leading-relaxed">
-          Home page coming soon.
+        <p className="font-sans text-muted text-lg lg:text-xl leading-relaxed mb-10">
+          You have successfully authenticated with GitHub.
         </p>
+
+        <button 
+          onClick={logout}
+          className="flex items-center justify-center gap-3 bg-transparent border-2 border-paper text-paper font-display font-bold uppercase px-8 py-3 rounded-[6px] text-sm hover:bg-paper hover:text-ink transition-colors"
+        >
+          Logout
+        </button>
       </div>
     </div>
   );

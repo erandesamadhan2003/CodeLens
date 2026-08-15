@@ -131,14 +131,14 @@ async function processEngineJob(job) {
   });
 }
 
-const infraqWorker = new Worker(QUEUE_NAME, processEngineJob, {
+const infrastructureWorker = new Worker(QUEUE_NAME, processEngineJob, {
   connection: redis,
   concurrency: 5,
   attempts: 3,
   backoff: { type: 'exponential', delay: 2000 }
 });
 
-infraqWorker.on('failed', async (job, err) => {
+infrastructureWorker.on('failed', async (job, err) => {
   logger.error({ jobId: job?.id, runId: job?.data?.runId, engine: ENGINE, err }, 'Worker: job failed');
   if (job?.data?.runId) {
     await query(
@@ -158,6 +158,6 @@ infraqWorker.on('failed', async (job, err) => {
   }
 });
 
-infraqWorker.on('error', (err) => logger.error({ err, engine: ENGINE }, 'Worker error'));
+infrastructureWorker.on('error', (err) => logger.error({ err, engine: ENGINE }, 'Worker error'));
 
-export default infraqWorker;
+export default infrastructureWorker;
