@@ -96,14 +96,22 @@ export const getInfrastructureAnalysis = async (runId, userId) => {
         detected_services,
         k8s_resources,
         terraform_resources,
-        recommendations
+        recommendations,
+        has_dockerfile,
+        has_docker_compose,
+        has_k8s_manifests,
+        has_terraform,
+        has_helm_charts,
+        has_ci_config,
+        has_pulumi,
+        has_ansible
      FROM infra_analyses 
      WHERE run_id = $1`,
     [runId]
   );
 
   const status = engineResult.rows.length > 0 ? engineResult.rows[0].status : 'unknown';
-  const progress = status === 'completed' ? 100 : (status === 'queued' ? 0 : 50); // simplified progress
+  const progress = status === 'completed' ? 100 : (status === 'queued' ? 0 : 50);
   
   const infraData = infraResult.rows.length > 0 ? infraResult.rows[0] : null;
 
@@ -112,10 +120,18 @@ export const getInfrastructureAnalysis = async (runId, userId) => {
     progress,
     discovery: infraData ? {
       services: infraData.detected_services || [],
-      cloudProvider: infraData.cloud_provider
+      cloudProvider: infraData.cloud_provider,
+      has_dockerfile: infraData.has_dockerfile || false,
+      has_docker_compose: infraData.has_docker_compose || false,
+      has_k8s_manifests: infraData.has_k8s_manifests || false,
+      has_terraform: infraData.has_terraform || false,
+      has_helm_charts: infraData.has_helm_charts || false,
+      has_ci_config: infraData.has_ci_config || false,
+      has_pulumi: infraData.has_pulumi || false,
+      has_ansible: infraData.has_ansible || false,
     } : null,
     architecture: infraData ? infraData.architecture_graph : null,
-    recommendations: infraData ? (infraData.recommendations || []) : [],
+    recommendations: infraData ? (infraData.recommendations || {}) : {},
     error: engineResult.rows.length > 0 ? engineResult.rows[0].error_message : null
   };
 };

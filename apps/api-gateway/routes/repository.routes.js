@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   listRepositories,
+  getGitHubRepositories,
   connectRepository,
   getRepository,
   deleteRepository,
@@ -18,6 +19,7 @@ const router = Router();
 router.use(authMiddleware, generalRateLimit);
 
 router.get('/',         listRepositories);
+router.get('/github',   getGitHubRepositories);
 router.post('/',        validate(connectRepoSchema), connectRepository);
 router.get('/:repoId',  getRepository);
 router.delete('/:repoId', deleteRepository);

@@ -17,26 +17,42 @@ export const listRuns = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit || '20', 10);
   const offset = (page - 1) * limit;
 
-  const countResult = await query(
-    `SELECT COUNT(*) FROM analysis_runs ar
-     JOIN repositories r ON ar.repo_id = r.id
-     WHERE r.user_id = $1`,
-    [req.user.id]
-  );
+  const repoId = req.query.repoId;
+  let countQuery = `
+    SELECT COUNT(*) FROM analysis_runs ar
+    JOIN repositories r ON ar.repo_id = r.id
+    WHERE r.user_id = $1
+  `;
+  const countParams = [req.user.id];
+
+  if (repoId) {
+    countQuery += ` AND r.id = $2`;
+    countParams.push(repoId);
+  }
+
+  const countResult = await query(countQuery, countParams);
   const total = parseInt(countResult.rows[0].count, 10);
 
-  const result = await query(
-    `SELECT ar.id, ar.repo_id, ar.commit_sha, ar.commit_message, ar.branch,
-            ar.author_name, ar.triggered_by, ar.status, ar.engines_requested,
-            ar.engines_completed, ar.started_at, ar.completed_at, ar.created_at,
-            r.full_name AS repo_full_name
-     FROM analysis_runs ar
-     JOIN repositories r ON ar.repo_id = r.id
-     WHERE r.user_id = $1
-     ORDER BY ar.created_at DESC
-     LIMIT $2 OFFSET $3`,
-    [req.user.id, limit, offset]
-  );
+  let fetchQuery = `
+    SELECT ar.id, ar.repo_id, ar.commit_sha, ar.commit_message, ar.branch,
+           ar.author_name, ar.triggered_by, ar.status, ar.engines_requested,
+           ar.engines_completed, ar.started_at, ar.completed_at, ar.created_at,
+           r.full_name AS repo_full_name
+    FROM analysis_runs ar
+    JOIN repositories r ON ar.repo_id = r.id
+    WHERE r.user_id = $1
+  `;
+  const fetchParams = [req.user.id];
+
+  if (repoId) {
+    fetchQuery += ` AND r.id = $2`;
+    fetchParams.push(repoId);
+  }
+
+  fetchQuery += ` ORDER BY ar.created_at DESC LIMIT $${fetchParams.length + 1} OFFSET $${fetchParams.length + 2}`;
+  fetchParams.push(limit, offset);
+
+  const result = await query(fetchQuery, fetchParams);
 
   return sendPaginated(res, result.rows, page, limit, total);
 });

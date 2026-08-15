@@ -7,6 +7,17 @@ import * as githubService from '../services/github.service.js';
 import logger from '../utils/logger.js';
 
 /**
+ * GET /api/v1/repositories/github
+ * List all repositories for the authenticated user from GitHub.
+ */
+export const getGitHubRepositories = asyncHandler(async (req, res) => {
+  const userResult = await query('SELECT github_access_token FROM users WHERE id = $1', [req.user.id]);
+  const accessToken = decrypt(userResult.rows[0].github_access_token);
+  const repos = await githubService.getUserRepos(accessToken, 1, 100);
+  return sendSuccess(res, repos, 'GitHub repositories retrieved');
+});
+
+/**
  * GET /api/v1/repositories
  * List all repositories for the current user.
  */
@@ -62,6 +73,7 @@ export const connectRepository = asyncHandler(async (req, res) => {
 
   // Register GitHub webhook using repo ID in the URL
   let webhookData;
+  let webhookFailed = false;
   try {
     webhookData = await githubService.createWebhook(
       accessToken, owner, name,
@@ -69,19 +81,19 @@ export const connectRepository = asyncHandler(async (req, res) => {
       webhookSecret
     );
   } catch (err) {
-    // Rollback repo insert on webhook failure
-    await query('DELETE FROM repositories WHERE id = $1', [repoId]);
-    logger.error({ err, repoId }, 'Failed to create GitHub webhook');
-    return sendError(res, 'Failed to register GitHub webhook', null, 502);
+    logger.warn({ err: err.message, repoId }, 'Failed to create GitHub webhook. Repository will be connected without automatic webhooks.');
+    webhookFailed = true;
   }
 
-  // Update repo with webhook info
-  await query(
-    `UPDATE repositories
-     SET webhook_id = $1, webhook_active = true
-     WHERE id = $2`,
-    [String(webhookData.id), repoId]
-  );
+  if (!webhookFailed && webhookData) {
+    // Update repo with webhook info
+    await query(
+      `UPDATE repositories
+       SET webhook_id = $1, webhook_active = true
+       WHERE id = $2`,
+      [String(webhookData.id), repoId]
+    );
+  }
 
   const finalRepo = await query(
     `SELECT id, github_repo_id, owner, name, full_name, description, default_branch,
@@ -91,8 +103,13 @@ export const connectRepository = asyncHandler(async (req, res) => {
     [repoId]
   );
 
-  logger.info({ repoId, userId: req.user.id, fullName }, 'Repository connected');
-  return sendSuccess(res, finalRepo.rows[0], 'Repository connected successfully', 201);
+  logger.info({ repoId, userId: req.user.id, fullName, webhookFailed }, 'Repository connected');
+  return sendSuccess(
+    res, 
+    finalRepo.rows[0], 
+    webhookFailed ? 'Repository connected (Webhook failed, requires manual setup or admin permissions)' : 'Repository connected successfully', 
+    201
+  );
 });
 
 /**

@@ -39,6 +39,8 @@ services:
     build: ./services/infrastructure-engine
     ports:
       - "8004:8000"
+    env_file:
+      - ./services/infrastructure-engine/.env
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}

@@ -1,56 +1,320 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/hooks/useAuth';
+import RepoConnectBar, { GitHubRepository } from '../components/RepoConnectBar';
+import EngineStatusCard, { EngineStatus } from '../components/EngineStatusCard';
+import LiveActivityFeed from '../components/LiveActivityFeed';
+import SeverityBadge from '../components/SeverityBadge';
+import RepoSidebar, { Repository } from '../components/RepoSidebar';
+import { api } from '../../../api/client';
+import { useNavigate } from 'react-router-dom';
 
-// Same circuit texture used in login
-const TextureBg = () => (
+// A subtle grid pattern for the paper background
+const GridBg = () => (
   <div 
-    className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
+    className="absolute inset-0 z-0 opacity-[0.05] pointer-events-none"
     style={{
-      backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-      backgroundSize: '32px 32px'
+      backgroundImage: `linear-gradient(#0A0A0A 1px, transparent 1px), linear-gradient(90deg, #0A0A0A 1px, transparent 1px)`,
+      backgroundSize: '24px 24px'
     }}
   />
 );
 
 export default function HomePage() {
   const { user, logout } = useAuth();
+  
+  // Repository state
+  const [connectedRepos, setConnectedRepos] = useState<Repository[]>([]);
+  const [activeRepoId, setActiveRepoId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Real backend states
+  const [isTriggering, setIsTriggering] = useState(false);
+  const [events, setEvents] = useState<any[]>([]);
+  
+  const [latestRun, setLatestRun] = useState<any>(null);
+  const navigate = useNavigate();
+
+  // Engine Status Derivation
+  const getEngineStatus = (engineName: string): EngineStatus => {
+    if (!latestRun) return 'IDLE';
+    const engineRes = latestRun.engineResults?.find((er: any) => er.engine === engineName);
+    if (!engineRes) return 'IDLE';
+    
+    switch (engineRes.status) {
+      case 'queued': return 'QUEUED';
+      case 'processing': return 'RUNNING';
+      case 'completed': return 'DONE';
+      case 'failed': return 'FAILED';
+      default: return 'IDLE';
+    }
+  };
+
+  // Fetch connected repos on mount
+  useEffect(() => {
+    const fetchConnectedRepos = async () => {
+      try {
+        const response = await api.get('/api/v1/repositories');
+        setConnectedRepos(response.data.data || response.data);
+        if (response.data.data?.length > 0) {
+          setActiveRepoId(response.data.data[0].id);
+        } else if (response.data.length > 0) {
+          setActiveRepoId(response.data[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch connected repos', err);
+      }
+    };
+    fetchConnectedRepos();
+  }, []);
+
+  const handleConnectRepo = async (githubRepo: GitHubRepository) => {
+    setIsConnecting(true);
+    try {
+      const response = await api.post('/api/v1/repositories', {
+        githubRepoId: String(githubRepo.id),
+        owner: githubRepo.owner.login,
+        name: githubRepo.name,
+        fullName: githubRepo.full_name,
+        description: githubRepo.description,
+        defaultBranch: githubRepo.default_branch,
+        isPrivate: githubRepo.private,
+        cloneUrl: githubRepo.clone_url,
+        language: githubRepo.language
+      });
+      const newRepo = response.data;
+      setConnectedRepos(prev => [newRepo, ...prev]);
+      setActiveRepoId(newRepo.id);
+    } catch (err) {
+      console.error('Failed to connect repo', err);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Polling for the latest run of the active repo
+  useEffect(() => {
+    if (!activeRepoId) {
+      setLatestRun(null);
+      return;
+    }
+
+    let mounted = true;
+    const fetchLatestRunDetails = async () => {
+      try {
+        const res = await api.get(`/api/v1/runs?repoId=${activeRepoId}&limit=1`);
+        if (!mounted) return;
+        
+        const runSummary = res.data.data?.[0];
+        if (runSummary) {
+          // Fetch full run details to get engine statuses
+          const fullRunRes = await api.get(`/api/v1/runs/${runSummary.id}`);
+          if (!mounted) return;
+          const fullRun = fullRunRes.data.data;
+          setLatestRun(fullRun);
+        } else {
+          setLatestRun(null);
+        }
+      } catch (err) {
+        console.error('Polling error', err);
+      }
+    };
+
+    fetchLatestRunDetails();
+    const interval = setInterval(fetchLatestRunDetails, 5000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [activeRepoId]);
+
+  const addEvent = (engine: string, message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    setEvents(prev => [...prev, {
+      id: Math.random().toString(36).substring(7),
+      timestamp: new Date().toLocaleTimeString('en-US', { hour12: false }),
+      engine,
+      message,
+      type
+    }].slice(-50)); // keep last 50
+  };
+
+  const activeRepo = connectedRepos.find(r => r.id === activeRepoId);
+
+  const handleAnalyze = async () => {
+    if (!activeRepo) return;
+    setIsTriggering(true);
+    addEvent('SYSTEM', `Manual analysis triggered for ${activeRepo.full_name}.`, 'info');
+
+    try {
+      await api.post('/api/v1/runs', {
+        repoId: activeRepo.id,
+        branch: activeRepo.default_branch
+      });
+      addEvent('SYSTEM', 'Analysis job queued on backend API...', 'success');
+      // The polling interval will naturally pick up the new run!
+    } catch (err) {
+      console.error('Failed to trigger analysis', err);
+      addEvent('INFRAQ', 'Failed to trigger backend analysis API.', 'error');
+    } finally {
+      setIsTriggering(false);
+    }
+  };
 
   return (
-    <div className="relative min-h-screen bg-ink flex flex-col items-center justify-center p-6 overflow-hidden">
-      <TextureBg />
+    <div className="relative min-h-screen bg-paper text-ink flex flex-col font-sans">
+      <GridBg />
       
-      {/* Top Logo */}
-      <div className="absolute top-6 lg:top-8 left-6 lg:left-8 flex items-center gap-3 z-10">
-        <div className="w-8 h-8 bg-accent flex items-center justify-center border-2 border-ink shadow-[4px_4px_0px_#0A0A0A]">
-          <span className="font-display font-bold text-ink text-lg">C</span>
+      {/* Top Navbar */}
+      <header className="relative z-10 w-full px-6 py-4 flex items-center justify-between border-b-2 border-ink bg-paper">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-accent flex items-center justify-center border-2 border-ink shadow-[4px_4px_0px_#0A0A0A]">
+            <span className="font-display font-bold text-ink text-lg">C</span>
+          </div>
+          <span className="font-display font-bold text-xl tracking-wide uppercase">CODELENSE</span>
         </div>
-        <span className="font-display font-bold text-xl tracking-wide text-paper uppercase">CODELENSE</span>
-      </div>
-
-      {/* Main Content Box */}
-      <div className="relative z-10 w-full max-w-lg flex flex-col items-center text-center">
-        {user?.avatar_url && (
-          <img 
-            src={user.avatar_url} 
-            alt={`${user.username}'s avatar`}
-            className="w-24 h-24 rounded-full border-4 border-ink shadow-[4px_4px_0px_#0A0A0A] mb-6 object-cover"
-          />
-        )}
         
-        <h1 className="font-display font-bold text-3xl lg:text-5xl uppercase text-paper leading-[1.1] tracking-tight mb-4">
-          Welcome, {user?.username || 'Hacker'}.
-        </h1>
-        <p className="font-sans text-muted text-lg lg:text-xl leading-relaxed mb-10">
-          You have successfully authenticated with GitHub.
-        </p>
+        <div className="flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-3">
+            <span className="font-mono text-sm font-bold">{user?.username}</span>
+            {user?.avatar_url && (
+              <img 
+                src={user.avatar_url} 
+                alt="Avatar" 
+                className="w-8 h-8 border-2 border-ink rounded-[4px] object-cover"
+              />
+            )}
+          </div>
+          <button 
+            onClick={logout}
+            className="font-mono text-sm font-bold uppercase hover:text-accent transition-colors underline decoration-2 underline-offset-4"
+          >
+            Logout
+          </button>
+        </div>
+      </header>
 
-        <button 
-          onClick={logout}
-          className="flex items-center justify-center gap-3 bg-transparent border-2 border-paper text-paper font-display font-bold uppercase px-8 py-3 rounded-[6px] text-sm hover:bg-paper hover:text-ink transition-colors"
-        >
-          Logout
-        </button>
-      </div>
+      {/* Main Dashboard Content */}
+      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-10 flex gap-10">
+        
+        {/* Sidebar */}
+        <RepoSidebar 
+          repositories={connectedRepos}
+          activeRepoId={activeRepoId}
+          onSelectRepo={setActiveRepoId}
+        />
+
+        {/* Dashboard Area */}
+        <div className="flex-1 flex flex-col gap-10">
+          
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Audit Dashboard</h1>
+              <p className="text-muted text-lg">Select a connected repository or add a new one.</p>
+            </div>
+            
+            {/* Connect Bar */}
+            <RepoConnectBar onConnect={handleConnectRepo} isConnecting={isConnecting} />
+          </div>
+
+          {activeRepo ? (
+            <div className="flex flex-col gap-8">
+              <div className="flex items-center justify-between border-b-2 border-ink pb-4">
+                <div className="flex flex-col gap-1">
+                  <h2 className="font-mono font-bold text-2xl">{activeRepo.full_name}</h2>
+                  <span className="text-muted font-mono text-sm">Branch: {activeRepo.default_branch}</span>
+                </div>
+                <button 
+                  onClick={handleAnalyze}
+                  disabled={isTriggering || (latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed')}
+                  className="bg-accent text-ink border-2 border-ink font-display font-bold uppercase px-6 py-2 rounded-[6px] shadow-[4px_4px_0px_#0A0A0A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#0A0A0A] transition-all disabled:opacity-50"
+                >
+                  {(latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed') ? 'Running...' : 'Analyze Now'}
+                </button>
+              </div>
+
+              {/* Engine Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <EngineStatusCard 
+                  name="InfraQ" 
+                  status={getEngineStatus('infraq')} 
+                  onClick={() => {
+                    navigate(`/dashboard/infrastructure/${activeRepo.id}`);
+                  }}
+                  summary={
+                    latestRun?.id ? (
+                      <div className="flex gap-2 text-xs font-mono mt-1">
+                        <span className="text-muted border-b border-muted">Click to view report &rarr;</span>
+                      </div>
+                    ) : null
+                  }
+                />
+                <EngineStatusCard 
+                  name="Infilra" 
+                  status={getEngineStatus('infilra')} 
+                  onClick={() => {
+                    navigate(`/dashboard/security/${activeRepo.id}`);
+                  }}
+                  summary={
+                    latestRun?.id ? (
+                      <div className="flex gap-2 text-xs font-mono mt-1">
+                        <span className="text-muted border-b border-muted">Click to view report &rarr;</span>
+                      </div>
+                    ) : null
+                  }
+                />
+                <EngineStatusCard 
+                  name="Depra" 
+                  status={getEngineStatus('depra')} 
+                  onClick={() => {
+                    navigate(`/dashboard/dependency/${activeRepo.id}`);
+                  }}
+                  summary={
+                    latestRun?.id ? (
+                      <div className="flex gap-2 text-xs font-mono mt-1">
+                        <span className="text-muted border-b border-muted">Click to view report &rarr;</span>
+                      </div>
+                    ) : null
+                  }
+                />
+                <EngineStatusCard 
+                  name="Devora" 
+                  status={getEngineStatus('devora')} 
+                  onClick={() => {
+                    navigate(`/dashboard/code-quality/${activeRepo.id}`);
+                  }}
+                  summary={
+                    latestRun?.id ? (
+                      <div className="flex gap-2 text-xs font-mono mt-1">
+                        <span className="text-muted border-b border-muted">Click to view report &rarr;</span>
+                      </div>
+                    ) : null
+                  }
+                />
+                <EngineStatusCard 
+                  name="Docryx" 
+                  status={getEngineStatus('docryx')} 
+                  onClick={() => {
+                    navigate(`/dashboard/documents/${activeRepo.id}`);
+                  }}
+                  summary={
+                    latestRun?.id ? (
+                      <div className="flex gap-2 text-xs font-mono mt-1">
+                        <span className="text-muted border-b border-muted">Click to view report &rarr;</span>
+                      </div>
+                    ) : null
+                  }
+                />
+              </div>
+
+              {/* Activity Feed */}
+              <div className="mt-4">
+                <LiveActivityFeed events={events} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 border-2 border-dashed border-muted rounded-[6px] flex items-center justify-center text-muted font-mono p-10 text-center">
+              No repository selected. Connect a repository above to view its dashboard.
+            </div>
+          )}
+          
+        </div>
+      </main>
     </div>
   );
 }
