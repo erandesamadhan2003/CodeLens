@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/ui/Button';
 
 export default function HeroSection() {
+  const navigate = useNavigate();
   return (
     <section className="w-full bg-ink text-paper flex flex-col items-center">
       {/* Nav bar */}
@@ -15,7 +17,7 @@ export default function HeroSection() {
         <div className="flex items-center gap-6">
           <a href="#" className="font-mono text-sm hover:text-accent transition-colors">DOCS</a>
           <a href="#" className="font-mono text-sm hover:text-accent transition-colors">GITHUB</a>
-          <Button variant="light" size="sm">
+          <Button variant="light" size="sm" onClick={() => navigate('/login')}>
             CONNECT REPO ↗
           </Button>
         </div>
@@ -34,7 +36,7 @@ export default function HeroSection() {
           <p className="text-muted text-lg lg:text-xl font-sans max-w-md">
             CodeLense scans your GitHub repo the moment you connect it — security, dependencies, infrastructure, roadmap, and docs, all at once.
           </p>
-          <Button variant="light" size="lg" className="mt-4">
+          <Button variant="light" size="lg" className="mt-4" onClick={() => navigate('/login')}>
             CONNECT REPO
           </Button>
         </div>

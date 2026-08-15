@@ -4,7 +4,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TYPE analysis_status   AS ENUM ('queued','running','completed','failed','cancelled');
+CREATE TYPE analysis_status   AS ENUM ('queued','running','analyzing','completed','failed','cancelled');
 CREATE TYPE engine_name_enum  AS ENUM ('infraq','infilra','depra','devora','docryx');
 CREATE TYPE webhook_status    AS ENUM ('received','processing','processed','failed');
 CREATE TYPE cloud_provider    AS ENUM ('aws','gcp','azure','unknown','none');
