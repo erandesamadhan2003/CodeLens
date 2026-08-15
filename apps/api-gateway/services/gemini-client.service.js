@@ -16,9 +16,9 @@ let genAI = null;
 export function assertGeminiConfigured() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || !apiKey.trim()) {
-    const message = 'GEMINI_API_KEY is not set — Infilra AI triage cannot run';
-    logger.error(message);
-    throw new Error(message);
+    const message = 'GEMINI_API_KEY is not set — Infilra AI triage will run with mock fallbacks';
+    logger.warn(message);
+    return;
   }
 
   genAI = new GoogleGenerativeAI(apiKey);

@@ -204,10 +204,26 @@ function mergeFindingWithTriage(finding, triage) {
  * @returns {Promise<object[]>} Findings merged with triage fields.
  */
 export async function triageFindings(findings) {
+  let isFallback = false;
   try {
     getGeminiClient();
   } catch {
-    throw new TriageFatalError('gemini_not_configured');
+    isFallback = true;
+  }
+
+  if (isFallback) {
+    if (!Array.isArray(findings)) return [];
+    return findings.map((finding, index) => {
+      const rawSev = (finding.rawSeverity ?? finding.raw_severity ?? 'medium').toLowerCase();
+      const adjusted = ['critical', 'high', 'medium', 'low'].includes(rawSev) ? rawSev : 'medium';
+      return {
+        ...finding,
+        triageId: index,
+        verdict: 'true_positive',
+        adjustedSeverity: adjusted,
+        reasoning: 'Rule-based local triage fallback (Gemini API key not configured)',
+      };
+    });
   }
 
   if (!Array.isArray(findings) || findings.length === 0) {
