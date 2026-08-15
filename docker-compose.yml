@@ -41,6 +41,9 @@ services:
       - "8004:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - TEMP_WORKSPACE_ROOT=/tmp/codelens/workspace
 
   security-engine:
     build: ./services/security-engine

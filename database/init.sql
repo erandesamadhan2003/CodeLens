@@ -10,7 +10,7 @@ CREATE TYPE webhook_status    AS ENUM ('received','processing','processed','fail
 CREATE TYPE cloud_provider    AS ENUM ('aws','gcp','azure','unknown','none');
 
 -- ── Users (GitHub OAuth) ─────────────────────────────────────
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     github_id            VARCHAR(64)  UNIQUE NOT NULL,
     username             VARCHAR(128) NOT NULL,
@@ -22,10 +22,10 @@ CREATE TABLE users (
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_users_github_id ON users(github_id);
+CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
 
 -- ── API keys (platform access, not GitHub) ───────────────────
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name          VARCHAR(128) NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE api_keys (
 );
 
 -- ── Repositories ─────────────────────────────────────────────
-CREATE TABLE repositories (
+CREATE TABLE IF NOT EXISTS repositories (
     id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id          UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     github_repo_id   VARCHAR(64)  UNIQUE NOT NULL,
@@ -60,11 +60,11 @@ CREATE TABLE repositories (
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_repositories_user_id    ON repositories(user_id);
-CREATE INDEX idx_repositories_full_name  ON repositories(full_name);
+CREATE INDEX IF NOT EXISTS idx_repositories_user_id    ON repositories(user_id);
+CREATE INDEX IF NOT EXISTS idx_repositories_full_name  ON repositories(full_name);
 
 -- ── Webhook events (raw GitHub payloads, idempotency) ────────
-CREATE TABLE webhook_events (
+CREATE TABLE IF NOT EXISTS webhook_events (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     repo_id         UUID         REFERENCES repositories(id) ON DELETE SET NULL,
     github_repo_id  VARCHAR(64),
@@ -79,11 +79,11 @@ CREATE TABLE webhook_events (
     received_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     processed_at    TIMESTAMPTZ
 );
-CREATE INDEX idx_webhook_events_repo_id     ON webhook_events(repo_id);
-CREATE INDEX idx_webhook_events_delivery_id ON webhook_events(delivery_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_repo_id     ON webhook_events(repo_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_delivery_id ON webhook_events(delivery_id);
 
 -- ── Analysis runs (one per push / manual trigger) ────────────
-CREATE TABLE analysis_runs (
+CREATE TABLE IF NOT EXISTS analysis_runs (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     repo_id             UUID   NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     webhook_event_id    UUID   REFERENCES webhook_events(id),
@@ -100,11 +100,11 @@ CREATE TABLE analysis_runs (
     completed_at        TIMESTAMPTZ,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_analysis_runs_repo_id ON analysis_runs(repo_id);
-CREATE INDEX idx_analysis_runs_status  ON analysis_runs(status);
+CREATE INDEX IF NOT EXISTS idx_analysis_runs_repo_id ON analysis_runs(repo_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_runs_status  ON analysis_runs(status);
 
 -- ── Engine results envelope (one row per engine per run) ─────
-CREATE TABLE engine_results (
+CREATE TABLE IF NOT EXISTS engine_results (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id          UUID   NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
     engine          engine_name_enum NOT NULL,
@@ -117,10 +117,10 @@ CREATE TABLE engine_results (
     completed_at    TIMESTAMPTZ,
     UNIQUE(run_id, engine)
 );
-CREATE INDEX idx_engine_results_run_id ON engine_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_engine_results_run_id ON engine_results(run_id);
 
 -- ── INFRAQ — Infrastructure analysis ─────────────────────────
-CREATE TABLE infra_analyses (
+CREATE TABLE IF NOT EXISTS infra_analyses (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id                  UUID UNIQUE NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
 
@@ -162,7 +162,7 @@ CREATE TABLE infra_analyses (
 );
 
 -- ── INFILRA — DAST security scan ─────────────────────────────
-CREATE TABLE security_scans (
+CREATE TABLE IF NOT EXISTS security_scans (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id              UUID UNIQUE NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
 
@@ -185,7 +185,7 @@ CREATE TABLE security_scans (
 );
 
 -- ── DEPRA — Dependency CVE intelligence ──────────────────────
-CREATE TABLE dependency_reports (
+CREATE TABLE IF NOT EXISTS dependency_reports (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id              UUID UNIQUE NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
 
@@ -205,7 +205,7 @@ CREATE TABLE dependency_reports (
 );
 
 -- ── DEVORA — Developer skills & growth ───────────────────────
-CREATE TABLE developer_profiles (
+CREATE TABLE IF NOT EXISTS developer_profiles (
     id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id                UUID  NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
     author_email          VARCHAR(256) NOT NULL,
@@ -226,7 +226,7 @@ CREATE TABLE developer_profiles (
 );
 
 -- ── DOCRYX — Documentation reports ───────────────────────────
-CREATE TABLE doc_reports (
+CREATE TABLE IF NOT EXISTS doc_reports (
     id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id                      UUID UNIQUE NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
 
@@ -246,7 +246,7 @@ CREATE TABLE doc_reports (
 );
 
 -- ── Notifications ─────────────────────────────────────────────
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id     UUID   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     run_id      UUID   REFERENCES analysis_runs(id) ON DELETE CASCADE,
@@ -256,7 +256,7 @@ CREATE TABLE notifications (
     is_read     BOOLEAN DEFAULT false,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
 
 -- ── updated_at trigger ────────────────────────────────────────
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -266,3 +266,63 @@ CREATE TRIGGER trg_users_updated_at
     BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_repositories_updated_at
     BEFORE UPDATE ON repositories FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ── INFRASTRUCTURE ENGINE: NORMALIZED TABLES ──────────────────
+
+-- 1. Infrastructure Findings
+CREATE TABLE IF NOT EXISTS infrastructure_findings (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    analysis_run_id UUID NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+    repository_id   UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+    rule_id         VARCHAR(128),
+    category        VARCHAR(64),
+    severity        VARCHAR(32),
+    title           VARCHAR(256),
+    description     TEXT,
+    file_path       TEXT,
+    line_number     INTEGER,
+    evidence        TEXT,
+    recommendation  TEXT,
+    status          VARCHAR(32),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Infrastructure Recommendations
+CREATE TABLE IF NOT EXISTS infrastructure_recommendations (
+    id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    analysis_run_id      UUID NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+    repository_id        UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+    category             VARCHAR(64),
+    priority             VARCHAR(32),
+    title                VARCHAR(256),
+    description          TEXT,
+    reason               TEXT,
+    current_state        TEXT,
+    recommended_state    TEXT,
+    estimated_complexity VARCHAR(32),
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 3. Infrastructure Artifacts
+CREATE TABLE IF NOT EXISTS infrastructure_artifacts (
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    analysis_run_id   UUID NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
+    generation_id     VARCHAR(128),
+    file_path         TEXT,
+    content           TEXT,
+    validation_status VARCHAR(64),
+    validation_errors JSONB,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for fast lookups
+CREATE INDEX IF NOT EXISTS idx_infra_findings_run_id ON infrastructure_findings(analysis_run_id);
+CREATE INDEX IF NOT EXISTS idx_infra_findings_repo_id ON infrastructure_findings(repository_id);
+CREATE INDEX IF NOT EXISTS idx_infra_findings_severity ON infrastructure_findings(severity);
+CREATE INDEX IF NOT EXISTS idx_infra_findings_status ON infrastructure_findings(status);
+CREATE INDEX IF NOT EXISTS idx_infra_findings_created_at ON infrastructure_findings(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_infra_recs_run_id ON infrastructure_recommendations(analysis_run_id);
+CREATE INDEX IF NOT EXISTS idx_infra_recs_repo_id ON infrastructure_recommendations(repository_id);
+
+CREATE INDEX IF NOT EXISTS idx_infra_artifacts_run_id ON infrastructure_artifacts(analysis_run_id);
