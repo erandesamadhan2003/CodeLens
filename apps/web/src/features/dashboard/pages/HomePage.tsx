@@ -7,6 +7,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import RepoSidebar, { Repository } from '../components/RepoSidebar';
 import { api } from '../../../api/client';
 import { useNavigate } from 'react-router-dom';
+import { CICDSetupModal } from '../components/CICDSetupModal';
 
 // A subtle grid pattern for the paper background
 const GridBg = () => (
@@ -26,6 +27,7 @@ export default function HomePage() {
   const [connectedRepos, setConnectedRepos] = useState<Repository[]>([]);
   const [activeRepoId, setActiveRepoId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showCICDModal, setShowCICDModal] = useState(false);
 
   // Real backend states
   const [isTriggering, setIsTriggering] = useState(false);
@@ -228,13 +230,21 @@ export default function HomePage() {
                   <h2 className="font-mono font-bold text-3xl lg:text-4xl truncate" title={activeRepo.full_name}>{activeRepo.full_name}</h2>
                   <span className="text-muted font-mono text-base bg-surface px-3 py-1 rounded-full border border-ink/20 self-start">Branch: {activeRepo.default_branch}</span>
                 </div>
-                <button 
-                  onClick={handleAnalyze}
-                  disabled={isTriggering || (latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed')}
-                  className="bg-accent text-ink border-[3px] border-ink font-display font-bold text-xl uppercase px-8 py-4 rounded-[8px] shadow-[6px_6px_0px_#0A0A0A] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[3px_3px_0px_#0A0A0A] transition-all disabled:opacity-50 shrink-0"
-                >
-                  {(latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed') ? 'Running...' : 'Analyze Now'}
-                </button>
+                <div className="flex items-center gap-4 shrink-0">
+                  <button 
+                    onClick={() => setShowCICDModal(true)}
+                    className="bg-paper text-ink border-[3px] border-ink font-display font-bold text-lg uppercase px-6 py-4 rounded-[8px] shadow-[4px_4px_0px_#0A0A0A] hover:bg-surface active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center gap-2"
+                  >
+                    <span>⚙️</span> CI/CD Setup
+                  </button>
+                  <button 
+                    onClick={handleAnalyze}
+                    disabled={isTriggering || (latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed')}
+                    className="bg-accent text-ink border-[3px] border-ink font-display font-bold text-xl uppercase px-8 py-4 rounded-[8px] shadow-[6px_6px_0px_#0A0A0A] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[3px_3px_0px_#0A0A0A] transition-all disabled:opacity-50 shrink-0"
+                  >
+                    {(latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed') ? 'Running...' : 'Analyze Now'}
+                  </button>
+                </div>
               </div>
 
               {/* Engine Grid */}
@@ -324,6 +334,10 @@ export default function HomePage() {
           
         </div>
       </main>
+      
+      {showCICDModal && activeRepo && (
+        <CICDSetupModal repo={activeRepo} onClose={() => setShowCICDModal(false)} />
+      )}
     </div>
   );
 }
