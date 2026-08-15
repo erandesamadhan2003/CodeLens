@@ -1,0 +1,119 @@
+# Design System — Amalgam
+
+## Direction
+Amalgam is a dev-facing dashboard: connect a GitHub repo, watch five
+engines analyze it in real time, read the results. The audience is
+developers, so it's fine to lean into a terminal/mono aesthetic —
+status feeds, logs, and code-adjacent panels are the norm here, not a
+stylistic flourish.
+
+Base: neubrutalist — thick black borders, hard offset shadows (no
+blur), one loud accent color, mono type for anything literal (status,
+timestamps, repo paths, counts).
+
+---
+
+## Tokens
+
+### Color
+```css
+--ink: #0A0A0A;         /* text, borders, primary buttons */
+--paper: #FAFAF8;       /* app background */
+--surface: #FFFFFF;     /* cards, table rows */
+--accent: #FF5A1F;      /* primary — CTAs, active states, "running" */
+--accent-alt: #C6F135;  /* "complete / passed" signal */
+--warning: #F5A623;     /* "medium severity" — only inside severity
+                            badges, never used as a general UI accent */
+--danger: #E4483B;      /* "failed / critical finding" */
+--muted: #6B6B6B;       /* secondary text */
+--line: #1A1A1A;        /* border color — reads as ink, not gray */
+```
+Rule: only one bright accent (`--accent`, orange) visible per screen as
+a general UI color. Severity/status colors (`--accent-alt`, `--warning`,
+`--danger`) are the exception — they're allowed to co-occur since each
+carries a distinct, specific meaning (pass / warn / fail), not
+competing for attention the way a decorative accent would.
+
+### Typography
+- Display / headings: **Space Grotesk** (bold, geometric)
+- Body / UI text: **Inter**
+- Mono — status, logs, timestamps, code, repo paths, counts:
+  **JetBrains Mono**
+
+Scale: `12 / 14 / 16 / 20 / 28 / 40` (px). Page titles use Space
+Grotesk at 24–28; everything else uses Inter unless it's literal data,
+which uses the mono face.
+
+### Shape & shadow
+- Border: `2px solid var(--ink)` on interactive surfaces (buttons,
+  cards, inputs, panels, badges)
+- Radius: `6px`
+- Shadow: hard offset, no blur — `box-shadow: 4px 4px 0 var(--ink);`
+  on primary buttons and actionable cards. On press:
+  `transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink);`
+- Passive containers (cards, table rows, panels that don't act on
+  click) stay flat — no shadow. Shadow is reserved for things you can
+  press, so it keeps meaning instead of decorating everything.
+
+---
+
+## Component patterns
+
+**Repo connect bar** (entry point of the product)
+Full-width input styled like a terminal prompt: mono font, `2px` ink
+border, paper background, a small "github.com/" prefix in muted gray
+inside the field before the editable part. Primary button "Analyze" to
+the right — ink background, hard shadow, press animation.
+
+**Engine status card** (one per engine — five of these form the core
+dashboard)
+- Card: `2px` ink border, `6px` radius, white background, no shadow.
+- Header row: engine name (Space Grotesk, ~15px) + a mono status pill
+  on the right:
+  - `QUEUED` — outline only, muted gray
+  - `RUNNING` — outline, accent (orange) border and text, can pulse
+  - `DONE` — accent-alt fill, ink text
+  - `FAILED` — danger border and text
+- Body: short live summary once done (e.g. "3 findings", "2 outdated
+  packages") in Inter, muted gray; a skeleton/placeholder while queued
+  or running.
+- This is the base component every engine's results view extends —
+  keep its structure generic.
+
+**Live activity log** (real-time event feed)
+Terminal-style panel: ink background, light mono text, one line per
+event, each prefixed with a mono timestamp and the engine name in
+accent color — e.g. `12:04:31  INFILRA  →  scan started`. New lines
+append at the bottom; auto-scroll.
+
+**Severity badge** (security findings, outdated/compromised deps)
+Mono, uppercase, `2px` border. No fill for low severity. `--warning`
+border + text for medium. `--danger` fill with paper text reserved for
+the most severe tier only, so a solid-red badge stays genuinely
+alarming rather than routine.
+
+**Data table** (findings, dependencies, any tabular results)
+Bordered container (`2px` ink border, `6px` radius, `overflow: hidden`
+so header/last-row corners follow the radius). Header row: mono,
+uppercase, muted gray labels, `2px` ink bottom border. Body rows:
+hairline dividers, subtle zebra striping, no divider on the last row.
+Status/severity column uses the severity badge component.
+
+**Roadmap timeline** (generated dev roadmap)
+Vertical list: mono index/date on the left, an ink connecting line,
+card content on the right (Space Grotesk title + Inter description) —
+same card styling as the engine status cards.
+
+**Document preview modal** (generated README, docs)
+Ink-bordered modal (`2px`), `2px` divider under the header (title in
+Space Grotesk, subtitle in muted Inter), close icon top-right, no
+box-shadow on the modal itself. The rendered document content inside
+keeps its own native typography — don't restyle the markdown output.
+
+---
+
+## Copy voice
+Plain and specific, addressed to what just happened or what's next:
+"3 critical findings" rather than "Security Analysis Complete." Status
+labels stay terse and literal — `QUEUED`, `RUNNING`, `DONE`, `FAILED` —
+no decorative synonyms.
