@@ -30,10 +30,11 @@ services:
 
   documentation-engine:
     build: ./services/documentation-engine
-    ports:
-      - "8003:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - ./services/documentation-engine/.env
+    depends_on:
+      - redis
+      - db
 
   infrastructure-engine:
     build: ./services/infrastructure-engine
@@ -53,6 +54,8 @@ services:
       - "8005:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
+    volumes:
+      - infilra_scans:/tmp/scans
 
   api-gateway:
     build: ./apps/api-gateway
@@ -63,6 +66,8 @@ services:
     depends_on:
       - db
       - redis
+    volumes:
+      - infilra_scans:/tmp/scans
 
   web:
     build: ./apps/web
@@ -79,3 +84,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  infilra_scans:

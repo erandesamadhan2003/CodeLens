@@ -1,11 +1,24 @@
 import { query } from '../config/database.js';
 import { decrypt } from '../utils/crypto.js';
-import { dispatchAllEngineJobs } from '../services/queue.service.js';
+import {
+  collectChangedFiles,
+  compareCommits,
+  mapCompareFilesToDiffs,
+} from '../services/github.service.js';
+import {
+  dispatchAllEngineJobs,
+  dispatchDependencyEngineJob,
+  dispatchDocumentationEngineJob,
+} from '../services/queue.service.js';
+import {
+  touchesDependencyManifest,
+  touchesRouteFiles,
+} from '../utils/webhookFilePatterns.js';
 import { sendSuccess, sendError } from '../utils/response.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import logger from '../utils/logger.js';
 
-const ALL_ENGINES = ['infraq', 'infilra', 'depra', 'devora', 'docryx'];
+const BASE_ENGINES = ['infraq', 'infilra', 'devora'];
 
 /**
  * POST /api/v1/webhooks/github/:repoId
@@ -58,6 +71,14 @@ export const handleGitHubWebhook = asyncHandler(async (req, res) => {
   const userResult = await query('SELECT github_access_token FROM users WHERE id = $1', [repo.user_id]);
   const githubToken = decrypt(userResult.rows[0].github_access_token);
 
+  const changedFiles = collectChangedFiles(payload.commits || []);
+  const shouldDepra = touchesDependencyManifest(changedFiles);
+  const shouldDocryx = touchesRouteFiles(changedFiles);
+
+  const enginesToRun = [...BASE_ENGINES];
+  if (shouldDepra) enginesToRun.push('depra');
+  if (shouldDocryx) enginesToRun.push('docryx');
+
   // Insert webhook_event
   const webhookEventResult = await query(
     `INSERT INTO webhook_events
@@ -81,12 +102,12 @@ export const handleGitHubWebhook = asyncHandler(async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7,'webhook','queued',$8,'{}')
      RETURNING *`,
     [repoId, webhookEventId, commitSha, commitMessage, branch,
-     authorName, pusherEmail, ALL_ENGINES]
+     authorName, pusherEmail, enginesToRun]
   );
   const run = runResult.rows[0];
 
-  // Insert engine_results rows
-  for (const engine of ALL_ENGINES) {
+  // Insert engine_results rows only for engines we will dispatch
+  for (const engine of enginesToRun) {
     await query(
       `INSERT INTO engine_results (run_id, engine, status) VALUES ($1,$2,'queued')`,
       [run.id, engine]
@@ -96,7 +117,23 @@ export const handleGitHubWebhook = asyncHandler(async (req, res) => {
   // Link run back to webhook event
   await query('UPDATE webhook_events SET run_id = $1 WHERE id = $2', [run.id, webhookEventId]);
 
-  // Dispatch jobs
+  let diffs = [];
+
+  const [owner, repoName] = (repo.full_name || '').split('/');
+  if (owner && repoName && payload.before && payload.after) {
+    try {
+      const compareData = await compareCommits(
+        githubToken, owner, repoName, payload.before, payload.after,
+      );
+      diffs = mapCompareFilesToDiffs(compareData.files || []);
+    } catch (err) {
+      logger.warn(
+        { err: err.message, runId: run.id, repo: repo.full_name },
+        'GitHub compare API failed — continuing with empty diffs',
+      );
+    }
+  }
+
   const jobPayload = {
     runId: run.id,
     repoId: repo.id,
@@ -109,7 +146,28 @@ export const handleGitHubWebhook = asyncHandler(async (req, res) => {
     webhookEventId,
   };
 
-  await dispatchAllEngineJobs(jobPayload, ALL_ENGINES);
+  await dispatchAllEngineJobs(jobPayload, BASE_ENGINES);
+
+  if (shouldDepra) {
+    await dispatchDependencyEngineJob({
+      repoUrl: repo.clone_url,
+      scanId: run.id,
+      triggeredBy: 'webhook',
+    });
+  }
+
+  if (shouldDocryx) {
+    await dispatchDocumentationEngineJob({
+      repoUrl: repo.clone_url,
+      scanId: run.id,
+      triggeredBy: 'webhook',
+      changedFiles,
+      commitSha,
+      diffs,
+      repoFullName: repo.full_name,
+      githubToken,
+    });
+  }
 
   // Mark webhook as processed
   await query(
@@ -117,6 +175,14 @@ export const handleGitHubWebhook = asyncHandler(async (req, res) => {
     ['processed', webhookEventId]
   );
 
-  logger.info({ runId: run.id, repoId, branch, commitSha }, 'Webhook processed, run dispatched');
+  logger.info({
+    runId: run.id,
+    repoId,
+    branch,
+    commitSha,
+    shouldDepra,
+    shouldDocryx,
+    enginesToRun,
+  }, 'Webhook processed, run dispatched');
   return res.status(200).json({ received: true, runId: run.id });
 });

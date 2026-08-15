@@ -4,7 +4,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TYPE analysis_status   AS ENUM ('queued','running','completed','failed','cancelled');
+CREATE TYPE analysis_status   AS ENUM ('queued','running','analyzing','completed','failed','cancelled');
 CREATE TYPE engine_name_enum  AS ENUM ('infraq','infilra','depra','devora','docryx');
 CREATE TYPE webhook_status    AS ENUM ('received','processing','processed','failed');
 CREATE TYPE cloud_provider    AS ENUM ('aws','gcp','azure','unknown','none');
@@ -230,6 +230,18 @@ CREATE TABLE IF NOT EXISTS doc_reports (
     id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     run_id                      UUID UNIQUE NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
 
+    repo_url                    TEXT,
+    has_readme                  BOOLEAN NOT NULL DEFAULT false,
+    readme_score                INTEGER NOT NULL DEFAULT 0,
+    has_license                 BOOLEAN NOT NULL DEFAULT false,
+    has_contributing            BOOLEAN NOT NULL DEFAULT false,
+    docs_folder_found           BOOLEAN NOT NULL DEFAULT false,
+    code_comment_ratio          NUMERIC(5,2) NOT NULL DEFAULT 0,
+    documented_functions_ratio  NUMERIC(5,2),
+    overall_score               INTEGER NOT NULL DEFAULT 0,
+    grade                       TEXT NOT NULL DEFAULT 'F',
+    findings                    JSONB NOT NULL DEFAULT '[]',
+
     files_analyzed              INTEGER DEFAULT 0,
     outdated_docs_count         INTEGER DEFAULT 0,
     missing_docs_count          INTEGER DEFAULT 0,
@@ -238,6 +250,26 @@ CREATE TABLE IF NOT EXISTS doc_reports (
     changed_files               JSONB DEFAULT '[]',
 
     doc_suggestions             JSONB DEFAULT '[]',
+
+    ai_summary                  TEXT,
+    ai_suggestions              JSONB DEFAULT '[]',
+    ai_status                   TEXT NOT NULL DEFAULT 'skipped',
+
+    meaningful_changes_undocumented JSONB,
+    api_docs_drift_detected       BOOLEAN,
+    api_docs_drift_files          JSONB,
+
+    has_api_docs                  BOOLEAN NOT NULL DEFAULT false,
+    api_docs_type                 TEXT,
+    has_env_example               BOOLEAN NOT NULL DEFAULT false,
+    has_codeowners                BOOLEAN NOT NULL DEFAULT false,
+    has_pr_template               BOOLEAN NOT NULL DEFAULT false,
+    has_issue_template            BOOLEAN NOT NULL DEFAULT false,
+    has_changelog                 BOOLEAN NOT NULL DEFAULT false,
+    has_architecture_doc          BOOLEAN NOT NULL DEFAULT false,
+    has_ci_config                 BOOLEAN NOT NULL DEFAULT false,
+    team_readiness_score          INTEGER NOT NULL DEFAULT 0,
+    team_readiness_grade          TEXT NOT NULL DEFAULT 'F',
 
     generated_diff              TEXT,
     pr_description              TEXT,

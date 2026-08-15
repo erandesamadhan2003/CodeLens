@@ -108,6 +108,45 @@ export async function deleteWebhook(accessToken, owner, repo, webhookId) {
 }
 
 /**
+ * Compare two commits and return file-level patches.
+ */
+export async function compareCommits(accessToken, owner, repo, base, head) {
+  const response = await axios.get(
+    `${GITHUB_API}/repos/${owner}/${repo}/compare/${base}...${head}`,
+    { headers: githubHeaders(accessToken) }
+  );
+  return response.data;
+}
+
+/**
+ * Collect unique changed file paths from a push webhook commits array.
+ */
+export function collectChangedFiles(commits = []) {
+  const files = new Set();
+  for (const commit of commits) {
+    for (const key of ['added', 'modified', 'removed']) {
+      for (const filePath of commit[key] || []) {
+        files.add(filePath);
+      }
+    }
+  }
+  return [...files];
+}
+
+/**
+ * Map GitHub compare API files to documentation-engine diff payload shape.
+ */
+export function mapCompareFilesToDiffs(files = []) {
+  return files.map((file) => ({
+    filename: file.filename,
+    patch: file.patch || '',
+    status: file.status === 'added' ? 'added'
+      : file.status === 'removed' ? 'removed'
+      : 'modified',
+  }));
+}
+
+/**
  * Get a user's email addresses from GitHub.
  */
 export async function getUserEmails(accessToken) {

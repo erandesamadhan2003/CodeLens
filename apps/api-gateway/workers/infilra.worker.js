@@ -4,6 +4,7 @@ import { query } from '../config/database.js';
 import { callEngine } from '../services/engine.service.js';
 import { broadcastToUser } from '../services/websocket.service.js';
 import { createNotification } from '../services/notification.service.js';
+import { infilraAiQueue } from '../config/queues.js';
 import logger from '../utils/logger.js';
 
 const ENGINE = 'infilra';
@@ -30,32 +31,48 @@ async function processEngineJob(job) {
     runId, repoId, userId, engine: ENGINE, repoFullName, cloneUrl, commitSha, branch, githubToken, webhookEventId,
   });
 
-  const duration = Date.now() - startTime;
+  if (result?.status === 'failed') {
+    throw new Error(result.failureReason || result.failure_reason || 'infilra_scan_failed');
+  }
+
+  const scanId = result.scanId || result.scan_id || runId;
+  const findingsPath = result.findingsPath || result.findings_path || null;
+  const findings = result.findings;
+
+  if (!Array.isArray(findings)) {
+    throw new Error('infilra_findings_missing');
+  }
 
   await query(
     `UPDATE engine_results
-     SET status = 'completed', result_data = $1, duration_ms = $2, ai_tokens_used = $3, completed_at = NOW()
-     WHERE run_id = $4 AND engine = $5`,
-    [result, duration, result?.ai_tokens_used || null, runId, ENGINE]
+     SET status = 'analyzing', result_data = $1
+     WHERE run_id = $2 AND engine = $3`,
+    [result, runId, ENGINE]
   );
 
-  await query(
-    `UPDATE analysis_runs SET engines_completed = array_append(engines_completed, $1::engine_name_enum) WHERE id = $2`,
-    [ENGINE, runId]
+  await infilraAiQueue.add(`infilra-ai:run:${runId}`, {
+    runId,
+    scanId,
+    findingsPath,
+    findings,
+    userId,
+    repoFullName,
+  });
+
+  const duration = Date.now() - startTime;
+
+  logger.info(
+    {
+      jobId: job.id,
+      runId,
+      scanId,
+      findingsPath,
+      findingsCount: findings.length,
+      duration,
+      engine: ENGINE,
+    },
+    'Worker: stage-1 complete, AI triage job enqueued'
   );
-
-  const runResult = await query('SELECT engines_completed FROM analysis_runs WHERE id = $1', [runId]);
-  const run = runResult.rows[0];
-  const allDone = ALL_ENGINES.every((e) => run.engines_completed.includes(e));
-
-  if (allDone) {
-    await query(`UPDATE analysis_runs SET status = 'completed', completed_at = NOW() WHERE id = $1`, [runId]);
-    broadcastToUser(userId, 'run:complete', { runId, status: 'completed', completedAt: new Date().toISOString() });
-    await createNotification(userId, runId, 'run_complete', 'Analysis Complete', `All engines finished for ${repoFullName}`);
-  }
-
-  broadcastToUser(userId, 'engine:complete', { runId, engine: ENGINE, status: 'completed', completedAt: new Date().toISOString() });
-  logger.info({ jobId: job.id, runId, engine: ENGINE, duration }, 'Worker: job completed');
 }
 
 const worker = new Worker(QUEUE_NAME, processEngineJob, {
