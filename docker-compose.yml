@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+
+  dependency-engine:
+    build: ./services/dependency-engine
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+
+  developer-enginer:
+    build: ./services/developer-enginer
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+
+  documentation-engine:
+    build: ./services/documentation-engine
+    ports:
+      - "8003:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+
+  infrastructure-engine:
+    build: ./services/infrastructure-engine
+    ports:
+      - "8004:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+
+  security-engine:
+    build: ./services/security-engine
+    ports:
+      - "8005:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+
+  api-gateway:
+    build: ./apps/api-gateway
+    ports:
+      - "3000:3000"
+
+  web:
+    build: ./apps/web
+    ports:
+      - "8080:80"
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
