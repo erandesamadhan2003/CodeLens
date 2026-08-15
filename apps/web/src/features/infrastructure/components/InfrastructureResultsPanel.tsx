@@ -322,9 +322,12 @@ export default function InfrastructureResultsPanel({
         <div className="bg-paper border-2 border-ink rounded-[6px] p-5">
           <h3 className="font-display font-bold text-base uppercase tracking-tight border-b-2 border-ink pb-2 mb-4">Score Breakdown</h3>
           <div className="flex flex-col gap-3">
-            {scoreKeys.map(([label, key]) => (
-              <ScoreBar key={key} label={label} value={scores[key] ?? 100} />
-            ))}
+            {['security', 'reliability', 'scalability', 'deployment', 'maintainability', 'cost'].map((key) => {
+              const label = key.toUpperCase();
+              return (
+                <ScoreBar key={key} label={label} value={scores[`${key}_score`] ?? 100} />
+              );
+            })}
           </div>
         </div>
 
@@ -424,7 +427,7 @@ export default function InfrastructureResultsPanel({
 
         {recommendations.length === 0 ? (
           <div className="p-8 border-2 border-dashed border-ink rounded-[6px] text-center text-muted font-mono">
-            No recommendations available. Click "Generate AI" to get AI-powered insights.
+            No recommendations generated during analysis.
           </div>
         ) : (
           <div className="flex flex-col gap-6">

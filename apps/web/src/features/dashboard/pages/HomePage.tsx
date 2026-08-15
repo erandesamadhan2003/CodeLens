@@ -141,6 +141,15 @@ export default function HomePage() {
     setIsTriggering(true);
     addEvent('SYSTEM', `Manual analysis triggered for ${activeRepo.full_name}.`, 'info');
 
+    // Optimistically set to QUEUED to immediately show skeleton loaders
+    setLatestRun({
+      status: 'queued',
+      engineResults: ['infraq', 'infilra', 'depra', 'devora', 'docryx'].map(e => ({
+        engine: e,
+        status: 'queued'
+      }))
+    });
+
     try {
       await api.post('/api/v1/runs', {
         repoId: activeRepo.id,
@@ -190,7 +199,7 @@ export default function HomePage() {
       </header>
 
       {/* Main Dashboard Content */}
-      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-10 flex gap-10">
+      <main className="relative z-10 flex-1 w-full flex flex-col md:flex-row px-6 md:px-12 py-10 gap-12 lg:gap-16">
         
         {/* Sidebar */}
         <RepoSidebar 
@@ -200,12 +209,12 @@ export default function HomePage() {
         />
 
         {/* Dashboard Area */}
-        <div className="flex-1 flex flex-col gap-10">
+        <div className="flex-1 flex flex-col gap-12 min-w-0">
           
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <h1 className="font-display font-bold text-3xl uppercase tracking-tight">Audit Dashboard</h1>
-              <p className="text-muted text-lg">Select a connected repository or add a new one.</p>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-3">
+              <h1 className="font-display font-bold text-4xl lg:text-5xl uppercase tracking-tight">Audit Dashboard</h1>
+              <p className="text-muted text-xl">Select a connected repository or add a new one.</p>
             </div>
             
             {/* Connect Bar */}
@@ -213,23 +222,23 @@ export default function HomePage() {
           </div>
 
           {activeRepo ? (
-            <div className="flex flex-col gap-8">
-              <div className="flex items-center justify-between border-b-2 border-ink pb-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className="font-mono font-bold text-2xl">{activeRepo.full_name}</h2>
-                  <span className="text-muted font-mono text-sm">Branch: {activeRepo.default_branch}</span>
+            <div className="flex flex-col gap-10">
+              <div className="flex items-center justify-between border-b-4 border-ink pb-6">
+                <div className="flex flex-col gap-2 min-w-0 pr-4">
+                  <h2 className="font-mono font-bold text-3xl lg:text-4xl truncate" title={activeRepo.full_name}>{activeRepo.full_name}</h2>
+                  <span className="text-muted font-mono text-base bg-surface px-3 py-1 rounded-full border border-ink/20 self-start">Branch: {activeRepo.default_branch}</span>
                 </div>
                 <button 
                   onClick={handleAnalyze}
                   disabled={isTriggering || (latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed')}
-                  className="bg-accent text-ink border-2 border-ink font-display font-bold uppercase px-6 py-2 rounded-[6px] shadow-[4px_4px_0px_#0A0A0A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#0A0A0A] transition-all disabled:opacity-50"
+                  className="bg-accent text-ink border-[3px] border-ink font-display font-bold text-xl uppercase px-8 py-4 rounded-[8px] shadow-[6px_6px_0px_#0A0A0A] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[3px_3px_0px_#0A0A0A] transition-all disabled:opacity-50 shrink-0"
                 >
                   {(latestRun && latestRun.status !== 'completed' && latestRun.status !== 'failed') ? 'Running...' : 'Analyze Now'}
                 </button>
               </div>
 
               {/* Engine Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <EngineStatusCard 
                   name="InfraQ" 
                   status={getEngineStatus('infraq')} 

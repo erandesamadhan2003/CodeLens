@@ -304,26 +304,9 @@ class RecommendationEngine:
         )
 
         if not has_infra:
-            old_recs = generate_greenfield_recommendations(self.arch)
+            recs = generate_greenfield_recommendations(self.arch)
         else:
-            old_recs = generate_brownfield_recommendations(self.arch, self.findings)
-
-        # Convert old strategy schema to new FileRecommendation schema
-        new_recs = []
-        for r in old_recs:
-            new_recs.append(FileRecommendation(
-                id=r.id,
-                priority=r.priority,
-                category=r.category,
-                title=r.title,
-                # Map old fields to new fields — they have different names
-                problem=getattr(r, 'currentState', '') or getattr(r, 'reason', r.title),
-                solution=getattr(r, 'description', r.title),
-                reasoning=getattr(r, 'reason', ''),
-                impact=getattr(r, 'recommendedState', ''),
-                estimated_effort=getattr(r, 'estimatedComplexity', 'MEDIUM'),
-                file_changes=[],
-            ))
+            recs = generate_brownfield_recommendations(self.arch, self.findings)
 
         return InfrastructureRecommendationResult(
             overall_score=scores["overall_score"],
@@ -333,7 +316,7 @@ class RecommendationEngine:
             deployment_score=scores["deployment_score"],
             maintainability_score=scores["maintainability_score"],
             cost_score=scores["cost_score"],
-            recommendations=new_recs,
+            recommendations=recs,
             ai_powered=False,
             ai_model="rule-based",
         )

@@ -102,21 +102,21 @@ export default function DocumentsDashboard() {
   return (
     <div className="relative min-h-screen bg-paper text-ink flex flex-col font-sans">
       <GridBg />
-      <header className="relative z-10 w-full px-6 py-4 flex items-center gap-4 border-b-2 border-ink bg-paper">
-        <button onClick={() => navigate('/home')} className="w-10 h-10 flex items-center justify-center border-2 border-ink bg-surface shadow-[2px_2px_0px_#0A0A0A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all rounded-[6px]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+      <header className="relative z-10 w-full px-6 md:px-12 py-6 flex items-center gap-6 border-b-4 border-ink bg-paper">
+        <button onClick={() => navigate('/home')} className="w-12 h-12 flex items-center justify-center border-[3px] border-ink bg-surface shadow-[4px_4px_0px_#0A0A0A] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all rounded-[8px]">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
         </button>
-        <div className="flex-1">
-          <div className="font-display font-bold text-xl uppercase tracking-tight">Documentation (Docryx)</div>
-          {runInfo && <div className="font-mono text-xs text-muted">{runInfo.repo_full_name} • {runInfo.branch}</div>}
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-3xl uppercase tracking-tight truncate block">Documentation (Docryx)</div>
+          {runInfo && <div className="font-mono text-sm text-muted mt-1 truncate bg-surface px-3 py-1 inline-block rounded-full border border-ink/20">{runInfo.repo_full_name} • {runInfo.branch}</div>}
         </div>
         <button id="doc-analyze-btn" onClick={handleAnalyze} disabled={isAnalyzing}
-          className={`flex items-center gap-2 px-4 py-2 font-display font-bold text-sm uppercase border-2 border-ink rounded-[6px] shadow-[2px_2px_0px_#0A0A0A] transition-all ${isAnalyzing ? 'bg-muted text-paper cursor-not-allowed' : 'bg-ink text-paper hover:bg-gray-800'}`}>
+          className={`shrink-0 flex items-center gap-3 px-6 py-3 font-display font-bold text-lg uppercase border-[3px] border-ink rounded-[8px] shadow-[4px_4px_0px_#0A0A0A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_#0A0A0A] transition-all ${isAnalyzing ? 'bg-muted text-paper cursor-not-allowed' : 'bg-accent text-ink hover:bg-accent/80'}`}>
           {isAnalyzing ? 'Scanning...' : '📚 Scan Now'}
         </button>
       </header>
 
-      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col gap-6">
+      <main className="relative z-10 flex-1 w-full flex flex-col px-6 md:px-12 py-10 gap-10">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center"><div className="font-mono text-xl animate-pulse text-muted">Loading documentation results...</div></div>
         ) : !data ? (

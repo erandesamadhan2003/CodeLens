@@ -34,11 +34,11 @@ def generate_greenfield_recommendations(arch: ArchitectureModel) -> List[Infrast
         category="scalability",
         priority="HIGH",
         title="Implement Docker Containerization",
-        description="Containerize the application to ensure consistent environments across development, testing, and production.",
-        reason="No Dockerfile detected. Containers prevent 'it works on my machine' issues and are standard for modern deployments.",
-        currentState="Application runs directly on host OS.",
-        recommendedState="Application runs inside a Docker container.",
-        estimatedComplexity="LOW"
+        solution="Containerize the application to ensure consistent environments across development, testing, and production.",
+        reasoning="No Dockerfile detected. Containers prevent 'it works on my machine' issues and are standard for modern deployments.",
+        problem="Application runs directly on host OS.",
+        impact="Application runs inside a Docker container.",
+        estimated_effort="LOW"
     ))
     
     # 2. Local Development
@@ -48,22 +48,22 @@ def generate_greenfield_recommendations(arch: ArchitectureModel) -> List[Infrast
             category="maintainability",
             priority="MEDIUM",
             title="Implement Local Kubernetes Dev Environment",
-            description="Use tools like Skaffold, Tilt, or Minikube to emulate the complex microservices environment locally.",
-            reason="High service count or complex messaging requires a robust local emulator.",
-            currentState="No local orchestration.",
-            recommendedState="Skaffold/Tilt configured for local dev.",
-            estimatedComplexity="HIGH"
+            solution="Use tools like Skaffold, Tilt, or Minikube to emulate the complex microservices environment locally.",
+            reasoning="High service count or complex messaging requires a robust local emulator.",
+            problem="No local orchestration.",
+            impact="Skaffold/Tilt configured for local dev.",
+            estimated_effort="HIGH"
         ))
     else:
         recommendations.append(InfrastructureRecommendation(
             category="maintainability",
             priority="MEDIUM",
             title="Implement Docker Compose for Local Development",
-            description="Create a docker-compose.yml to easily spin up the application and its dependencies (e.g. database).",
-            reason="Simplifies developer onboarding.",
-            currentState="Developers must manually install databases and services.",
-            recommendedState="One-command startup via `docker-compose up`.",
-            estimatedComplexity="LOW"
+            solution="Create a docker-compose.yml to easily spin up the application and its dependencies (e.g. database).",
+            reasoning="Simplifies developer onboarding.",
+            problem="Developers must manually install databases and services.",
+            impact="One-command startup via `docker-compose up`.",
+            estimated_effort="LOW"
         ))
         
     # 3. CI/CD
@@ -71,11 +71,11 @@ def generate_greenfield_recommendations(arch: ArchitectureModel) -> List[Infrast
         category="deployment",
         priority="HIGH",
         title="Implement CI/CD Pipeline",
-        description="Add a GitHub Actions or GitLab CI pipeline to automate tests, security scanning, and builds.",
-        reason="No automated pipelines detected.",
-        currentState="Manual builds and testing.",
-        recommendedState="Automated testing and container building on every push.",
-        estimatedComplexity="MEDIUM"
+        solution="Add a GitHub Actions or GitLab CI pipeline to automate tests, security scanning, and builds.",
+        reasoning="No automated pipelines detected.",
+        problem="Manual builds and testing.",
+        impact="Automated testing and container building on every push.",
+        estimated_effort="MEDIUM"
     ))
     
     # 4. Orchestration
@@ -84,32 +84,32 @@ def generate_greenfield_recommendations(arch: ArchitectureModel) -> List[Infrast
             category="scalability",
             priority="HIGH",
             title="Adopt Kubernetes for Orchestration",
-            description="Deploy services using Kubernetes to handle the high complexity and scale of the system.",
-            reason="The architecture's complexity and service count warrant a robust orchestrator.",
-            currentState="No orchestration defined.",
-            recommendedState="Kubernetes cluster (e.g., EKS, GKE) with Helm charts.",
-            estimatedComplexity="HIGH"
+            solution="Deploy services using Kubernetes to handle the high complexity and scale of the system.",
+            reasoning="The architecture's complexity and service count warrant a robust orchestrator.",
+            problem="No orchestration defined.",
+            impact="Kubernetes cluster (e.g., EKS, GKE) with Helm charts.",
+            estimated_effort="HIGH"
         ))
         recommendations.append(InfrastructureRecommendation(
             category="maintainability",
             priority="MEDIUM",
             title="Use Helm for Kubernetes Package Management",
-            description="Define your Kubernetes resources as Helm charts for easier templating and versioning.",
-            reason="Managing raw YAML across 10+ services is error-prone.",
-            currentState="No package management.",
-            recommendedState="Helm charts defining standard deployments.",
-            estimatedComplexity="MEDIUM"
+            solution="Define your Kubernetes resources as Helm charts for easier templating and versioning.",
+            reasoning="Managing raw YAML across 10+ services is error-prone.",
+            problem="No package management.",
+            impact="Helm charts defining standard deployments.",
+            estimated_effort="MEDIUM"
         ))
     else:
         recommendations.append(InfrastructureRecommendation(
             category="deployment",
             priority="MEDIUM",
             title="Adopt Managed PaaS or Serverless",
-            description="Deploy the container to a managed service like AWS App Runner, Google Cloud Run, or Heroku.",
-            reason="Simple architectures don't need the overhead of Kubernetes.",
-            currentState="No deployment strategy defined.",
-            recommendedState="Automated deployment to a serverless container platform.",
-            estimatedComplexity="LOW"
+            solution="Deploy the container to a managed service like AWS App Runner, Google Cloud Run, or Heroku.",
+            reasoning="Simple architectures don't need the overhead of Kubernetes.",
+            problem="No deployment strategy defined.",
+            impact="Automated deployment to a serverless container platform.",
+            estimated_effort="LOW"
         ))
         
     # 5. Infrastructure as Code
@@ -117,11 +117,11 @@ def generate_greenfield_recommendations(arch: ArchitectureModel) -> List[Infrast
         category="maintainability",
         priority="LOW",
         title="Adopt Terraform for Infrastructure as Code",
-        description="Define your cloud resources (databases, networks) using Terraform.",
-        reason="Manual cloud console clicks lead to configuration drift.",
-        currentState="Infrastructure created manually.",
-        recommendedState="Terraform state tracking all cloud resources.",
-        estimatedComplexity="MEDIUM"
+        solution="Define your cloud resources (databases, networks) using Terraform.",
+        reasoning="Manual cloud console clicks lead to configuration drift.",
+        problem="Infrastructure created manually.",
+        impact="Terraform state tracking all cloud resources.",
+        estimated_effort="MEDIUM"
     ))
     
     return recommendations
@@ -136,11 +136,11 @@ def generate_brownfield_recommendations(arch: ArchitectureModel, findings: list)
             category="scalability",
             priority="HIGH",
             title="Implement Docker Containerization",
-            description="Containerize the application components.",
-            reason="Missing containerization in an existing infrastructure setup.",
-            currentState="No Dockerfile detected.",
-            recommendedState="Dockerfiles for all services.",
-            estimatedComplexity="LOW"
+            solution="Containerize the application components.",
+            reasoning="Missing containerization in an existing infrastructure setup.",
+            problem="No Dockerfile detected.",
+            impact="Dockerfiles for all services.",
+            estimated_effort="LOW"
         ))
         
     if not arch.infrastructure.terraform:
@@ -148,11 +148,11 @@ def generate_brownfield_recommendations(arch: ArchitectureModel, findings: list)
             category="maintainability",
             priority="MEDIUM",
             title="Adopt Infrastructure as Code",
-            description="Migrate existing cloud resources to Terraform.",
-            reason="Missing IaC tooling.",
-            currentState="Resources managed manually or via scripts.",
-            recommendedState="Terraform modules managing infrastructure.",
-            estimatedComplexity="HIGH"
+            solution="Migrate existing cloud resources to Terraform.",
+            reasoning="Missing IaC tooling.",
+            problem="Resources managed manually or via scripts.",
+            impact="Terraform modules managing infrastructure.",
+            estimated_effort="HIGH"
         ))
         
     # Analyze findings to generate specific recommendations
@@ -163,11 +163,11 @@ def generate_brownfield_recommendations(arch: ArchitectureModel, findings: list)
             category="security",
             priority="HIGH",
             title="Address Critical Security Vulnerabilities",
-            description=f"Fix the {len(critical_findings)} critical security findings detected in the static analysis.",
-            reason="Critical vulnerabilities expose the system to immediate risk.",
-            currentState=f"{len(critical_findings)} critical findings.",
-            recommendedState="0 critical findings.",
-            estimatedComplexity="MEDIUM"
+            solution=f"Fix the {len(critical_findings)} critical security findings detected in the static analysis.",
+            reasoning="Critical vulnerabilities expose the system to immediate risk.",
+            problem=f"{len(critical_findings)} critical findings.",
+            impact="0 critical findings.",
+            estimated_effort="MEDIUM"
         ))
         
     return recommendations
