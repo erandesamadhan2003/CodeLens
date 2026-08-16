@@ -66,6 +66,33 @@ def _clone(run_id: str, repo_url: str, token: Optional[str]) -> str:
 
 SKIP = {'.git', 'node_modules', 'venv', '__pycache__', 'dist', 'build'}
 
+def _get_project_context(workspace: str) -> str:
+    """Reads key files from the workspace to build a project context for the LLM."""
+    base = Path(workspace)
+    context = []
+    
+    # Check for common package manifests
+    manifests = ["package.json", "requirements.txt", "pyproject.toml", "Cargo.toml", "go.mod", "pom.xml"]
+    for manifest in manifests:
+        mf = base / manifest
+        if mf.exists():
+            try:
+                content = mf.read_text(errors="replace")[:1000] # Limit size
+                context.append(f"--- {manifest} ---\n{content}\n")
+            except Exception:
+                pass
+
+    # Read a few root source files to understand what the code does
+    src_files = list(base.glob("*.py")) + list(base.glob("*.js")) + list(base.glob("*.ts")) + list(base.glob("*.go")) + list(base.glob("*.cpp")) + list(base.glob("*.c")) + list(base.glob("src/**/*.cpp"))
+    for src in src_files[:5]:
+        try:
+            content = src.read_text(errors="replace")[:1000]
+            context.append(f"--- {src.name} ---\n{content}\n")
+        except Exception:
+            pass
+
+    return "\n".join(context)
+
 def _analyse_workspace(workspace: str) -> dict:
     base = Path(workspace)
     
@@ -91,31 +118,42 @@ def _analyse_workspace(workspace: str) -> dict:
     missing_docs = []
     files_analyzed = 0
 
-    for f in base.rglob("*.py"):
+    import itertools
+    all_files = itertools.chain(base.rglob("*.py"), base.rglob("*.js"), base.rglob("*.ts"), base.rglob("*.go"), base.rglob("*.cpp"), base.rglob("*.hpp"), base.rglob("*.c"), base.rglob("*.h"))
+
+    for f in all_files:
         if any(p in SKIP for p in f.parts): continue
         try:
             lines = f.read_text(errors="replace").splitlines()
             total_lines += len(lines)
             for line in lines:
                 stripped = line.strip()
-                if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'''"):
+                if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'''") or stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
                     comment_lines += 1
+            import re
             # Simple function detection
             for i, line in enumerate(lines):
-                if line.strip().startswith("def "):
+                stripped = line.strip()
+                # Python, JS/TS, Go, C/C++ function detection (naive)
+                is_c_func = bool(re.match(r'^[a-zA-Z_][\w\:\*\&]*\s+[a-zA-Z_][\w\:\*\&]*\s*\(.*\)', stripped))
+                if stripped.startswith("def ") or stripped.startswith("function ") or "=>" in stripped or stripped.startswith("func ") or is_c_func:
                     fn_count += 1
                     # Check if next non-empty line is docstring
-                    for j in range(i+1, min(i+4, len(lines))):
+                    has_doc = False
+                    for j in range(max(0, i-2), min(i+4, len(lines))):
                         nxt = lines[j].strip()
-                        if nxt.startswith('"""') or nxt.startswith("'''"):
-                            fn_with_doc += 1
+                        if nxt.startswith('"""') or nxt.startswith("'''") or nxt.startswith("/**") or nxt.startswith("//"):
+                            has_doc = True
                             break
-                        elif nxt:
-                            rel = str(f.relative_to(base))
-                            if len(missing_docs) < 20:
-                                fn_name = line.strip().split("(")[0].replace("def ", "")
-                                missing_docs.append({"file": rel, "function": fn_name, "line": i+1})
-                            break
+                    
+                    if has_doc:
+                        fn_with_doc += 1
+                    else:
+                        rel = str(f.relative_to(base))
+                        if len(missing_docs) < 20:
+                            fn_name = stripped.split("(")[0].replace("def ", "").replace("function ", "").replace("func ", "")
+                            if len(fn_name) > 30: fn_name = fn_name[:30] + "..."
+                            missing_docs.append({"file": rel, "function": fn_name, "line": i+1})
             files_analyzed += 1
         except Exception:
             pass
@@ -158,12 +196,27 @@ def _analyse_workspace(workspace: str) -> dict:
         findings.append({"type": "missing", "severity": "MEDIUM", "message": "No LICENSE file found", "recommendation": "Add an appropriate open source license"})
     if not has_contributing:
         findings.append({"type": "missing", "severity": "LOW", "message": "No CONTRIBUTING.md found", "recommendation": "Add contribution guidelines for collaborators"})
+    if not has_changelog:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No CHANGELOG file found", "recommendation": "Add a CHANGELOG to track version updates"})
+    if not has_docs_folder and not has_api_docs:
+        findings.append({"type": "missing", "severity": "MEDIUM", "message": "No API Documentation or Docs Folder found", "recommendation": "Add a docs/ folder or API documentation"})
+    if not has_env_example:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No .env.example file", "recommendation": "Add .env.example to document required environment variables"})
+    if not has_pr_template:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No PR Template found", "recommendation": "Add a pull request template"})
+    if not has_issue_template:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No Issue Template found", "recommendation": "Add an issue template"})
+    if not has_codeowners:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No CODEOWNERS file found", "recommendation": "Add a CODEOWNERS file"})
+    if not has_ci_config:
+        findings.append({"type": "missing", "severity": "MEDIUM", "message": "No CI/CD Config found", "recommendation": "Add CI/CD configuration (e.g., GitHub Actions)"})
+    if not has_arch_doc:
+        findings.append({"type": "missing", "severity": "LOW", "message": "No Architecture Docs found", "recommendation": "Add architecture documentation"})
+
     if comment_ratio < 0.1:
         findings.append({"type": "quality", "severity": "MEDIUM", "message": f"Low code comment ratio: {comment_ratio:.1%}", "recommendation": "Add inline comments explaining complex logic"})
     if doc_fn_ratio < 0.5 and fn_count > 0:
-        findings.append({"type": "quality", "severity": "MEDIUM", "message": f"Only {doc_fn_ratio:.0%} of functions have docstrings ({fn_with_doc}/{fn_count})", "recommendation": "Add docstrings to Python functions"})
-    if not has_env_example:
-        findings.append({"type": "missing", "severity": "LOW", "message": "No .env.example file", "recommendation": "Add .env.example to document required environment variables"})
+        findings.append({"type": "quality", "severity": "MEDIUM", "message": f"Only {doc_fn_ratio:.0%} of functions have docstrings ({fn_with_doc}/{fn_count})", "recommendation": "Add docstrings to functions"})
 
     return {
         "status": "completed",
@@ -218,6 +271,63 @@ Be specific and actionable."""}],
         return None
 
 
+async def _generate_suggested_docs(workspace_context: str, findings: list):
+    """Uses Groq to generate Markdown content for missing documentation files."""
+    if not GROQ_API_KEY:
+        return
+    try:
+        from groq import AsyncGroq
+        client = AsyncGroq(api_key=GROQ_API_KEY, timeout=20.0)
+        
+        for finding in findings:
+            if finding.get("type") == "missing":
+                msg = finding.get("message", "")
+                if "README" in msg:
+                    prompt = f"Based on the following project context, generate a complete, professional README.md file. Only return the raw Markdown content, do not add conversational text.\n\nContext:\n{workspace_context}"
+                elif "CONTRIBUTING" in msg:
+                    prompt = f"Based on the following project context, generate a professional CONTRIBUTING.md file. Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                elif "LICENSE" in msg:
+                    prompt = f"Based on the following project context, generate a standard MIT LICENSE file. Only return the raw text.\n\nContext:\n{workspace_context}"
+                elif "CHANGELOG" in msg:
+                    prompt = f"Based on the following project context, generate a basic initial CHANGELOG.md file following Keep a Changelog format. Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                elif ".env.example" in msg:
+                    prompt = f"Based on the following project context, generate a comprehensive .env.example file detailing environment variables this project might need. Only return the raw content.\n\nContext:\n{workspace_context}"
+                elif "PR Template" in msg:
+                    prompt = f"Based on the following project context, generate a GitHub Pull Request Template (.github/PULL_REQUEST_TEMPLATE.md). Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                elif "Issue Template" in msg:
+                    prompt = f"Based on the following project context, generate a GitHub Issue Template (.github/ISSUE_TEMPLATE/bug_report.md). Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                elif "CODEOWNERS" in msg:
+                    prompt = f"Based on the following project context, generate a CODEOWNERS file. Only return the raw text.\n\nContext:\n{workspace_context}"
+                elif "CI/CD Config" in msg:
+                    prompt = f"Based on the following project context, generate a GitHub Actions workflow (ci.yml) file. Only return the raw YAML content.\n\nContext:\n{workspace_context}"
+                elif "Architecture Docs" in msg:
+                    prompt = f"Based on the following project context, generate a basic ARCHITECTURE.md outlining the structure and stack of the project. Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                elif "API Documentation" in msg:
+                    prompt = f"Based on the following project context, generate a basic API Documentation (API.md). Only return the raw Markdown content.\n\nContext:\n{workspace_context}"
+                else:
+                    continue
+            else:
+                continue
+
+            resp = await client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+            )
+            content = resp.choices[0].message.content
+            if content:
+                # Strip leading/trailing markdown code blocks if the LLM wrapped it
+                if content.startswith("```markdown\n"):
+                    content = content[12:]
+                elif content.startswith("```\n"):
+                    content = content[4:]
+                if content.endswith("\n```"):
+                    content = content[:-4]
+                finding["suggestedContent"] = content.strip()
+
+    except Exception as e:
+        logger.warning(f"AI suggested docs generation failed: {e}")
+
 async def _persist(run_id: str, result: dict):
     try:
         pool = await get_pool()
@@ -256,11 +366,17 @@ async def analyze(req: AnalyzeRequest):
         workspace = _clone(run_id, repo_url, req.githubToken)
         result = _analyse_workspace(workspace)
         
-        # AI summary
-        ai_summary = await _get_ai_summary(result)
-        if ai_summary:
-            result["aiSummary"] = ai_summary
-            result["aiStatus"] = "completed"
+        # Collect project context
+        workspace_context = _get_project_context(workspace)
+        
+        # AI summary & Suggested Docs
+        if GROQ_API_KEY:
+            ai_summary = await _get_ai_summary(result)
+            if ai_summary:
+                result["aiSummary"] = ai_summary
+                result["aiStatus"] = "completed"
+            
+            await _generate_suggested_docs(workspace_context, result["findings"])
 
         result["runId"] = run_id
         await _persist(run_id, result)

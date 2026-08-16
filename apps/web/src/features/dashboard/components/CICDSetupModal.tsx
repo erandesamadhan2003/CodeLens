@@ -21,6 +21,8 @@ export const CICDSetupModal = ({ repo, onClose }) => {
     }
   };
 
+  const baseUrl = "https://ethics-ccd-anime-sunny.trycloudflare.com";
+
   const workflowYaml = `name: CodeLens Automated Scan
 
 on:
@@ -33,7 +35,7 @@ jobs:
     steps:
       - name: Trigger CodeLens Analysis
         run: |
-          curl -X POST "${window.location.origin}/api/v1/runs" \\
+          curl -X POST "${baseUrl}/api/v1/runs" \\
           -H "Content-Type: application/json" \\
           -H "x-api-key: \${{ secrets.CODELENS_API_KEY }}" \\
           -d '{
@@ -97,7 +99,30 @@ jobs:
                 {workflowYaml}
               </pre>
               <button
-                onClick={() => navigator.clipboard.writeText(workflowYaml)}
+                onClick={() => {
+                  if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(workflowYaml).catch(() => fallbackCopy(workflowYaml));
+                  } else {
+                    fallbackCopy(workflowYaml);
+                  }
+                  
+                  function fallbackCopy(text: string) {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-999999px";
+                    textArea.style.top = "-999999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    try {
+                      document.execCommand('copy');
+                    } catch (err) {
+                      console.error('Fallback copy failed', err);
+                    }
+                    document.body.removeChild(textArea);
+                  }
+                }}
                 className="absolute top-2 right-2 bg-paper text-ink px-3 py-1 font-bold text-xs uppercase border-2 border-ink opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
               >
                 Copy YAML

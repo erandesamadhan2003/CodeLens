@@ -200,7 +200,26 @@ export default function DocumentsDashboard() {
                       <span className={`text-xs font-bold uppercase px-1.5 py-0.5 rounded ${f.severity === 'HIGH' ? 'bg-orange-500 text-white' : f.severity === 'MEDIUM' ? 'bg-yellow-400 text-black' : 'bg-blue-400 text-white'}`}>{f.severity}</span>
                       <span className="font-display font-bold text-sm">{f.message}</span>
                     </div>
-                    <p className="text-sm text-muted ml-1">💡 {f.recommendation}</p>
+                    <p className="text-sm text-muted ml-1 mb-2">💡 {f.recommendation}</p>
+                    
+                    {f.suggestedContent && (
+                      <details className="mt-3 group">
+                        <summary className="cursor-pointer font-bold text-xs uppercase bg-white/50 inline-block px-3 py-1.5 border border-ink/20 rounded-[4px] hover:bg-white transition-colors list-none flex items-center gap-2 w-fit">
+                          <span className="group-open:rotate-90 transition-transform">▶</span> View Suggested Content
+                        </summary>
+                        <div className="mt-2 relative">
+                          <pre className="bg-ink text-paper p-4 text-xs font-mono overflow-x-auto rounded-[4px] whitespace-pre-wrap">
+                            {f.suggestedContent}
+                          </pre>
+                          <button 
+                            onClick={() => navigator.clipboard.writeText(f.suggestedContent)}
+                            className="absolute top-2 right-2 bg-paper text-ink px-3 py-1 font-bold text-xs uppercase border-2 border-ink hover:bg-accent transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </details>
+                    )}
                   </div>
                 ))}
               </div>
