@@ -250,7 +250,7 @@ export default function HomePage() {
               {/* Engine Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <EngineStatusCard 
-                  name="InfraQ" 
+                  name="Infrastructure" 
                   status={getEngineStatus('infraq')} 
                   onClick={() => {
                     navigate(`/dashboard/infrastructure/${activeRepo.id}`);
@@ -264,7 +264,7 @@ export default function HomePage() {
                   }
                 />
                 <EngineStatusCard 
-                  name="Infilra" 
+                  name="Security" 
                   status={getEngineStatus('infilra')} 
                   onClick={() => {
                     navigate(`/dashboard/security/${activeRepo.id}`);
@@ -278,7 +278,7 @@ export default function HomePage() {
                   }
                 />
                 <EngineStatusCard 
-                  name="Depra" 
+                  name="Dependency" 
                   status={getEngineStatus('depra')} 
                   onClick={() => {
                     navigate(`/dashboard/dependency/${activeRepo.id}`);
@@ -291,8 +291,9 @@ export default function HomePage() {
                     ) : null
                   }
                 />
+                {/* Devora (Code Quality) engine — not yet built, commented out
                 <EngineStatusCard 
-                  name="Devora" 
+                  name="Code Quality" 
                   status={getEngineStatus('devora')} 
                   onClick={() => {
                     navigate(`/dashboard/code-quality/${activeRepo.id}`);
@@ -305,8 +306,9 @@ export default function HomePage() {
                     ) : null
                   }
                 />
+                */}
                 <EngineStatusCard 
-                  name="Docryx" 
+                  name="Documentation" 
                   status={getEngineStatus('docryx')} 
                   onClick={() => {
                     navigate(`/dashboard/documents/${activeRepo.id}`);

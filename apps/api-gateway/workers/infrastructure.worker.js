@@ -8,6 +8,8 @@ import { createNotification } from '../services/notification.service.js';
 import logger from '../utils/logger.js';
 import readline from 'readline';
 
+import { checkAndAlertCriticalFindings } from '../services/alert.service.js';
+
 const ENGINE = 'infraq';
 const QUEUE_NAME = `codelens-${ENGINE}`;
 const ALL_ENGINES = ['infraq', 'infilra', 'depra', 'devora', 'docryx'];
@@ -89,6 +91,9 @@ async function processEngineJob(job) {
              WHERE run_id = $4 AND engine = $5`,
             [finalResult, duration, finalResult?.ai_tokens_used || null, runId, ENGINE]
           );
+
+          // Check for critical findings and send email
+          await checkAndAlertCriticalFindings(userId, repoFullName, branch, ENGINE, finalResult);
 
           // Append engine to engines_completed
           await query(

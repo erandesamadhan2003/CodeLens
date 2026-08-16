@@ -6,6 +6,8 @@ import { broadcastToUser } from '../services/websocket.service.js';
 import { createNotification } from '../services/notification.service.js';
 import logger from '../utils/logger.js';
 
+import { checkAndAlertCriticalFindings } from '../services/alert.service.js';
+
 const ENGINE = 'depra';
 const QUEUE_NAME = 'codelens-depra';
 const ALL_ENGINES = ['infraq', 'infilra', 'depra', 'devora', 'docryx'];
@@ -38,6 +40,9 @@ async function processEngineJob(job) {
      WHERE run_id = $4 AND engine = $5`,
     [result, duration, result?.ai_tokens_used || null, runId, ENGINE]
   );
+
+  // Check for critical findings and send email
+  await checkAndAlertCriticalFindings(userId, repoFullName, branch, ENGINE, result);
 
   await query(
     `UPDATE analysis_runs SET engines_completed = array_append(engines_completed, $1::engine_name_enum) WHERE id = $2`,

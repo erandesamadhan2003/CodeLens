@@ -45,7 +45,7 @@ async function processEngineJob(job) {
 
   await query(
     `UPDATE engine_results
-     SET status = 'analyzing', result_data = $1
+     SET status = 'running', result_data = $1
      WHERE run_id = $2 AND engine = $3`,
     [result, runId, ENGINE]
   );

@@ -18,6 +18,8 @@ import {
 } from '../services/gemini-narrative.service.js';
 import logger from '../utils/logger.js';
 
+import { checkAndAlertCriticalFindings } from '../services/alert.service.js';
+
 const WORKER_NAME = 'infilra-ai';
 const ENGINE = 'infilra';
 const QUEUE_NAME = 'codelens-infilra-ai';
@@ -26,7 +28,7 @@ const ALL_ENGINES = ['infraq', 'infilra', 'depra', 'devora', 'docryx'];
 assertGeminiConfigured();
 
 async function processAiJob(job) {
-  const { runId, scanId, findingsPath, findings, userId, repoFullName } = job.data;
+  const { runId, scanId, findingsPath, findings, userId, repoFullName, branch } = job.data;
   const startTime = Date.now();
 
   logger.info(
@@ -62,15 +64,37 @@ async function processAiJob(job) {
     );
   }
 
-  const triagedFindings = await triageFindings(findings);
-  const triageSummary = buildTriageSummary(triagedFindings);
+  let triagedFindings = [];
+  let triageSummary = { truePositive: 0, falsePositive: 0, unverified: 0 };
+  let narratives = [];
+  let mergedFindings = [];
+  let narrativesGenerated = 0;
+  let executiveSummary = { headline: 'Scan complete without AI triage', topPriority: '', oneLinePerSeverity: {} };
 
-  const truePositiveFindings = triagedFindings.filter((finding) => finding.verdict === 'true_positive');
-  const narratives = await generateNarratives(truePositiveFindings);
-  const mergedFindings = mergeFindingsWithNarratives(triagedFindings, narratives);
+  try {
+    triagedFindings = await triageFindings(findings);
+    triageSummary = buildTriageSummary(triagedFindings);
 
-  const narrativesGenerated = countNarrativesGenerated(mergedFindings);
-  const executiveSummary = await generateExecutiveSummary(mergedFindings);
+    const truePositiveFindings = triagedFindings.filter((finding) => finding.verdict === 'true_positive');
+    narratives = await generateNarratives(truePositiveFindings);
+    mergedFindings = mergeFindingsWithNarratives(triagedFindings, narratives);
+
+    narrativesGenerated = countNarrativesGenerated(mergedFindings);
+    executiveSummary = await generateExecutiveSummary(mergedFindings);
+  } catch (err) {
+    logger.warn({ err: err.message }, 'AI Triage Failed (e.g. invalid API key) - skipping AI step so engine can complete');
+    
+    // Fall back to original findings, mapping their raw severity over so they can be processed by the alert system
+    mergedFindings = findings.map((f, i) => ({
+      ...f,
+      triageId: i,
+      verdict: 'unverified',
+      severity: (f.rawSeverity || f.raw_severity || 'MEDIUM').toUpperCase(),
+      reasoning: 'AI triage failed or skipped'
+    }));
+    triageSummary.unverified = mergedFindings.length;
+  }
+
   const duration = Date.now() - startTime;
 
   const resultData = {
@@ -91,6 +115,9 @@ async function processAiJob(job) {
      WHERE run_id = $3 AND engine = $4`,
     [resultData, duration, runId, ENGINE]
   );
+
+  // Check for critical findings and send email
+  await checkAndAlertCriticalFindings(userId, repoFullName, branch, ENGINE, resultData);
 
   await query(
     `UPDATE analysis_runs SET engines_completed = array_append(engines_completed, $1::engine_name_enum) WHERE id = $2`,

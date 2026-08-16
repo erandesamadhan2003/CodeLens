@@ -32,7 +32,7 @@ export default function CodeQualityDashboard() {
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <span className="font-display font-bold text-3xl uppercase tracking-tight truncate block">Code Quality (Devora)</span>
+          <span className="font-display font-bold text-3xl uppercase tracking-tight truncate block">Code Quality</span>
         </div>
       </header>
 

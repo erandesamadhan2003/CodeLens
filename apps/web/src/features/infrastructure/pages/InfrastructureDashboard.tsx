@@ -124,7 +124,7 @@ export default function InfrastructureDashboard() {
         </button>
 
         <div className="flex-1 min-w-0">
-          <span className="font-display font-bold text-3xl uppercase tracking-tight truncate block">Infrastructure (InfraQ)</span>
+          <span className="font-display font-bold text-3xl uppercase tracking-tight truncate block">Infrastructure</span>
           {runDetails && (
             <span className="font-mono text-sm text-muted mt-1 truncate bg-surface px-3 py-1 inline-block rounded-full border border-ink/20">
               {runDetails.repo_full_name} • {runDetails.branch} • {runDetails.commit_sha?.substring(0, 7)}

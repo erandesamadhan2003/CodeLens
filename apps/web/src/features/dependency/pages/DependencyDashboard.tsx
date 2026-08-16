@@ -115,7 +115,7 @@ export default function DependencyDashboard() {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
         </button>
         <div className="flex-1 min-w-0">
-          <div className="font-display font-bold text-3xl uppercase tracking-tight truncate">Dependencies (Depra)</div>
+          <div className="font-display font-bold text-3xl uppercase tracking-tight truncate">Dependencies</div>
           {runInfo && <div className="font-mono text-sm text-muted mt-1 truncate bg-surface px-3 py-1 inline-block rounded-full border border-ink/20">{runInfo.repo_full_name} • {runInfo.branch}</div>}
         </div>
         <button id="dep-analyze-btn" onClick={handleAnalyze} disabled={isAnalyzing}
